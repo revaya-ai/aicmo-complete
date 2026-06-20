@@ -1,4 +1,4 @@
-# Card 1 — BRAIN (Think + Write) — Design Spec
+# Card 1: BRAIN (Think + Write) Design Spec
 
 > Status: approved (Shannon, 2026-06-20). Station owner: Brain builder.
 > Architecture: Claude Code skills + commands (the craft lives in skills, the loop runs through commands; scripts are the runtime).
@@ -24,9 +24,9 @@ Out (later, not today):
 
 ## Components
 
-### Skills (`.claude/skills/`) — original, written from Jen's public deck, not copies
+### Skills (`.claude/skills/`): original, written from the public AI CMO deck, not copies
 
-1. **content-os** — the Brick chain. Five locked steps, each producing one artifact the next step depends on:
+1. **content-os**, the Brick chain. Five locked steps, each producing one artifact the next step depends on:
    - Intake: restate the seed idea in one line.
    - Topic: one-line topic + which content pillar it serves (from the client strategy).
    - Angle: pick a named angle (loads `positioning-angles`).
@@ -34,13 +34,13 @@ Out (later, not today):
    - Story/Shift: outline the body arc, then write it (loads `writing-style`).
    - Rule: never skip a step, never write the body before the hook is locked.
 
-2. **writing-style** — anti-AI-slop enforcement. No em dashes or hyphens as breaks. Banned-phrase list. Show-don't-claim (every claim needs a number, name, or date). No generic openers. One idea per post. Mix sentence length.
+2. **writing-style**, anti-AI-slop enforcement. No em dashes or hyphens as breaks. Banned-phrase list. Show-don't-claim (every claim needs a number, name, or date). No generic openers. One idea per post. Mix sentence length.
 
-3. **positioning-angles** — a small library of named angles mapped to the client's audience and offers, used by the Angle step to choose deliberately rather than defaulting to generic.
+3. **positioning-angles**, a small library of named angles mapped to the client's audience and offers, used by the Angle step to choose deliberately rather than defaulting to generic.
 
 ### Command (`.claude/commands/`)
 
-- **ai-cmo-generate** — entry point. Reads the seed idea argument + the client's 6-layer context, runs the Brick chain (loading the three skills in order), then calls `engine/db.py` to write the finished draft at status `drafted`. Reports the record id and the locked artifacts.
+- **ai-cmo-generate**, entry point. Reads the seed idea argument + the client's 6-layer context, runs the Brick chain (loading the three skills in order), then calls `engine/db.py` to write the finished draft at status `drafted`. Reports the record id and the locked artifacts.
 
 ### Client context (`client-data/lumen-skin/`)
 
@@ -62,7 +62,7 @@ seed idea (string)
   -> handoff to Card 2 (Studio) which reads status "drafted"
 ```
 
-## Contract (frozen — shared with Studio and Mission Control)
+## Contract (frozen, shared with Studio and Mission Control)
 
 Brain writes: `pillar`, `angle`, `hook`, `body`, `status='drafted'`. No other fields. Any change to the shared record requires all three builders to agree.
 
@@ -70,7 +70,7 @@ Brain writes: `pillar`, `angle`, `hook`, `body`, `status='drafted'`. No other fi
 
 - Missing client context file: fail loud with the exact missing path (do not invent brand facts).
 - Empty or junk seed idea: ask for a real seed idea rather than fabricating one.
-- A Brick step that can't ground a claim: leave the claim out (show-don't-claim), do not hallucinate a statistic.
+- A Brick step that cannot ground a claim: leave the claim out (show-don't-claim), do not hallucinate a statistic.
 
 ## Verification (definition of done)
 

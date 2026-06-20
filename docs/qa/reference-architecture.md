@@ -1,8 +1,8 @@
-# AI CMO — Reference Architecture (QA source of truth)
+# AI CMO: Reference Architecture (QA source of truth)
 
-> This is the checklist the QA agents audit the repo against. It is the neutral, product-level spec of what a complete AI CMO must contain, derived from the AI CMO reference (the public deck and the full system map presented at the June 2026 mastermind). It does not reproduce any private material or name any third-party clients.
+> This is the checklist the QA agents audit the repo against. It is the neutral, product-level spec of what a complete AI CMO must contain, derived from the AI CMO reference (the public deck and the full system map from a reference architecture). It does not reproduce any private material or name any third-party clients.
 >
-> The QA principle (Ben's Bali QA approach): the agent that checks is never the agent that built, and you watch for silence, not just errors. A component that is documented but absent, or a step that reports success while producing nothing, is a failure even when no error is thrown.
+> The QA principle (an independent-QA approach): the agent that checks is never the agent that built, and you watch for silence, not just errors. A component that is documented but absent, or a step that reports success while producing nothing, is a failure even when no error is thrown.
 
 ---
 

@@ -1,4 +1,4 @@
-# Team Brief — AI CMO Hackathon
+# Team Brief: AI CMO Hackathon
 
 Read this first. It explains what we're building, what's already done, what your job is, and what we walk away with.
 
@@ -8,7 +8,7 @@ Read this first. It explains what we're building, what's already done, what your
 
 An **AI CMO**: a marketing department that runs as software. One seed idea goes in, and the system thinks, writes, designs, quality-checks, waits for a human to approve, then publishes and measures. Six steps run themselves. One step is a person. That one human decision is the whole point.
 
-We are rebuilding the version Jen demoed, so we all walk away with a working copy.
+We are rebuilding the AI CMO reference so we all walk away with a working copy.
 
 ---
 
@@ -40,19 +40,19 @@ The shared brain is a file called `db.py`. It holds the content record every sta
 
 Think of it as an assembly line in three sections. Each person owns one section, builds it on their own branch, and we bolt them together at the end of the day. Full detail is in `ASSIGNMENTS.md`. Short version:
 
-### Card 1 — BRAIN (Think + Write)
+### Card 1: BRAIN (Think + Write)
 You make the words. Take a seed idea, understand the client's brand, and write an on-brand post.
 - You own: `engine/brain/` and the client brand context files.
 - Your handoff: takes a `captured` idea, returns a `drafted` post.
 - Done when: a real, on-brand post comes out (not generic AI mush).
 
-### Card 2 — STUDIO (Design + Check)
+### Card 2: STUDIO (Design + Check)
 You make the picture and you are the brand police. Render the on-brand graphic, then a vision model scores it. Anything off-brand gets bounced before a human ever sees it.
 - You own: `engine/studio/`, the image template, and the visual brand spec.
 - Your handoff: takes a `drafted` post, attaches an image, marks it `qc_review` (pass) or `needs_revision` (fail).
 - Done when: a real branded image comes out with a real quality score, and the gate actually rejects a bad image.
 
-### Card 3 — MISSION CONTROL (Approve + Publish + Measure + Ads)
+### Card 3: MISSION CONTROL (Approve + Publish + Measure + Ads)
 You run the control room. Build the approve/reject button a client taps, publish the approved post, pull the numbers back, and run the recommend-only ads agent. You are also the person who merges everything at the end.
 - You own: `engine/mission/`, `engine/ads/`, `run.py`, and you are custodian of `db.py`.
 - Your handoff: takes a `qc_review` post, walks it through `approved → published → analyzed`, then `ad_recommended → ad_approved → ad_live`.
