@@ -111,6 +111,7 @@ Claude Code, run the loop with `python3 run.py "<seed>"`, and run reporting with
 | Command | Walks | Skills loaded |
 |---|---|---|
 | `/ai-cmo-intel [client]` | (front of funnel) candidate seed ideas | intelligence |
+| `/ai-cmo-aeo [client]` | (front of funnel) AI visibility report to `outputs/reports/` | intelligence |
 | `/ai-cmo-generate "<seed>"` | `captured` -> `drafted` | content-os, positioning-angles, writing-style, hook-library, story-structures |
 | `/ai-cmo-render <id>` | `drafted` -> `qc_review` | brand-test |
 | `/ai-cmo-publish <id>` | `approved` -> `published` | publish-linkedin |
@@ -127,7 +128,9 @@ The four-station loop is the spine. These modules complete the reference archite
 
 | Area | Module(s) | What it does |
 |---|---|---|
-| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | Candidate seed ideas grounded in `strategy.md` pillars. |
+| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | Candidate seed ideas grounded in `strategy.md` pillars. Live SEO via DataForSEO when credentials are set, offline stub otherwise. |
+| AEO (AI visibility) | `engine/aeo/aeo.py` | AI visibility report: is the brand cited in AI answers for its target questions. Writes `outputs/reports/<client>-aeo-visibility.md`. Offline by default. |
+| Integrations | `engine/integrations/dataforseo.py` | Credential-gated DataForSEO client (SEO + AEO), stdlib only. No network call without `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD`. |
 | Feedback loop | `engine/feedback.py` | Harvests winners into `client-data/<client>/learnings.md`. |
 | Dashboard + reporting | `engine/dashboard/metrics.py`, `report.py`, `notion_mirror.py` | Pipeline metrics, weekly brief, Notion board mirror (stub). |
 | Ad creative | `engine/studio/render.py` `render_ad()` | Ad-sized (1080x1080) creative, wired into the ads push. |
@@ -146,7 +149,8 @@ needs any of these.
 | `AICMO_VISION_QC=claude` | Brand QC scores the image with a vision model |
 | `ZERNIO_API_KEY` | Mission publishes and pulls analytics for real |
 | `META_ACCESS_TOKEN` or `LINKEDIN_ACCESS_TOKEN` | Ads push creates a real campaign |
-| `DATAFORSEO_LOGIN`, `GSC_CREDENTIALS`, `APIFY_TOKEN` | Intelligence pulls live SEO/GSC/competitor signals |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | Intelligence pulls live SEO keyword demand and the AEO report pulls live AI visibility data (both required). Pay-as-you-go, $50 minimum deposit, calls are fractions of a cent. No live call without both set. |
+| `GSC_CREDENTIALS`, `APIFY_TOKEN` | Intelligence pulls live GSC and competitor signals |
 | `NOTION_TOKEN` | Dashboard and human gate mirror to a real Notion board |
 
 ## For builders
@@ -170,7 +174,7 @@ db.py            # FROZEN CONTRACT (schema + helpers)
 run.py           # orchestrator, walks one idea through every station
 client-data/     # 6-layer context per client (lumen-skin demo)
 templates/       # social post template (Station 2 renders this)
-engine/          # the 4 stations + intelligence, feedback, dashboard, leak_guard
+engine/          # the 4 stations + intelligence, aeo, integrations, feedback, dashboard, leak_guard
 .claude/skills/  # the craft: content-os, brand-test, publish-linkedin, ad-copy, intelligence, feedback-loop, hook-library, story-structures, etc.
 .claude/commands/ # the loop: ai-cmo-intel, generate, render, publish, engagement-sync, ads, report, onboard
 docs/architecture/ # multi-repo-model.md, agents.md (persona registry)

@@ -53,7 +53,9 @@ These modules complete the reference architecture. All offline by default.
 
 | Area | Module(s) | Reads -> Writes |
 |---|---|---|
-| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | `client-data/<client>/strategy.md` -> candidate seed dicts (no db write) |
+| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | `client-data/<client>/strategy.md` -> candidate seed dicts (no db write). Live SEO via DataForSEO when configured, offline stub otherwise. Reports path `live:dataforseo` vs `offline:stub`. |
+| AEO (AI visibility) | `engine/aeo/aeo.py` | `client-data/<client>/positioning.md` + `strategy.md` -> `outputs/reports/<client>-aeo-visibility.md`. Is the brand cited in AI answers. Offline by default. |
+| Integrations | `engine/integrations/dataforseo.py` | Credential-gated DataForSEO client (SEO + AEO), stdlib only. No network call without `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`. |
 | Feedback loop | `engine/feedback.py` | `analyzed` posts -> appends `client-data/<client>/learnings.md` |
 | Dashboard | `engine/dashboard/metrics.py`, `report.py`, `notion_mirror.py` | whole pipeline -> summary dict, `outputs/reports/*.md`, `outputs/notion-mirror.json` |
 | Ad creative | `engine/studio/render.py` `render_ad(post_id)` | post hook/body -> ad-sized PNG (wired into `ads_push`) |
@@ -89,7 +91,8 @@ In `.claude/skills/`. Skills inform, they do not execute.
 
 In `.claude/commands/`. Commands orchestrate, loading the relevant skills.
 
-- `/ai-cmo-intel [client]`: front of funnel, output candidate seed ideas.
+- `/ai-cmo-intel [client]`: front of funnel, output candidate seed ideas. Live SEO path via DataForSEO activates when credentials are present.
+- `/ai-cmo-aeo [client]`: AI visibility report to `outputs/reports/`. Offline by default, live with DataForSEO credentials.
 - `/ai-cmo-generate "<seed>"`: `captured` -> `drafted`.
 - `/ai-cmo-render <id>`: `drafted` -> `qc_review`.
 - `/ai-cmo-publish <id>`: `approved` -> `published`.
@@ -113,7 +116,8 @@ In `.claude/commands/`. Commands orchestrate, loading the relevant skills.
 | `AICMO_VISION_QC=claude` | Vision brand QC |
 | `ZERNIO_API_KEY` | Mission publish + analytics |
 | `META_ACCESS_TOKEN` / `LINKEDIN_ACCESS_TOKEN` | Ads push campaign |
-| `DATAFORSEO_LOGIN` / `GSC_CREDENTIALS` / `APIFY_TOKEN` | Intelligence live signals |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | Intelligence live SEO + AEO visibility (both required). Pay-as-you-go, $50 min deposit, fractions of a cent per call. No live call without both. |
+| `GSC_CREDENTIALS` / `APIFY_TOKEN` | Intelligence live GSC + competitor signals |
 | `NOTION_TOKEN` | Notion board mirror (dashboard + human gate) |
 
 None are required. The stubs are deterministic so tests and the demo are stable.

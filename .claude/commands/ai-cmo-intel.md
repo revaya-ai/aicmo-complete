@@ -20,7 +20,12 @@ Run the front-of-funnel sweep. Produce candidate seed ideas for the client so th
 python3 engine/intelligence/intelligence.py --client lumen-skin
 ```
 
-This prints the candidate seeds as JSON. Offline by default. Real signal sources (DataForSEO, GSC, Apify) activate only when their env var is set.
+This prints the candidate seeds as JSON, prefixed by which path ran:
+
+- `offline:stub` means no DataForSEO credentials, so seeds are grounded in the strategy pillars only.
+- `live:dataforseo` means `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` are both set, so seeds come from real keyword demand via DataForSEO Labs, still mapped to the client pillars.
+
+The live SEO path activates only when both credentials are present. With no credentials, or on any client error, the sweep falls back to the deterministic offline seeds. No live call is ever made without credentials. See `/ai-cmo-aeo` for the AEO visibility report that uses the same account.
 
 4. **Review and shortlist.** Read the candidates. Apply the `intelligence` skill filters: one idea per seed, every seed mapped to a real pillar, at least two pillars covered. Drop anything that fits no pillar or duplicates another.
 
