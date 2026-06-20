@@ -2,11 +2,15 @@
 
 **The AI CMO.** A content marketing department that runs as software.
 
-This is the hackathon skeleton. One content idea ("a post") is a single database
-row that walks through a status pipeline. Each station reads the row at one
-status, does its job, and advances it to the next. Today every station is a
-**stub** that returns canned data. Builders swap stubs for real logic without
-ever touching the contract.
+One content idea ("a post") is a single database row that walks through a status
+pipeline. Each station reads the row at one status, does its job, and advances it
+to the next. Every station now runs real logic against the frozen contract.
+
+The whole loop runs OFFLINE on the Python standard library with no API keys. All
+external services (image render, publishing, analytics, ad platforms) have stubs
+that activate by default and only call the real service when the matching env var
+is set. So a fresh clone walks a seed idea from `captured` all the way to
+`ad_live` with one command and no setup.
 
 ## Who this is for (ICP)
 A small business with a marketing team of one, or a founder who can't afford a
@@ -20,7 +24,7 @@ Demo client: **Lumen Skin Studio**, a small-batch skincare brand
 ## The contract-first rule
 `db.py` is the **frozen contract**. It defines the `posts` table, the `Status`
 constants, and the helper functions every station uses. Changing it requires
-**all three builders to agree** — a schema change breaks everyone at once.
+**all three builders to agree**. A schema change breaks everyone at once.
 Everything else (the station internals) is yours to rewrite freely.
 
 ## The status pipeline
@@ -59,19 +63,60 @@ Off-ramps: `needs_revision` and `rejected` (set at the human gate or by QC).
 | 3. Mission | `engine/mission/` | `qc_review` -> `approved` -> `scheduled` -> `published` -> `analyzed` (human gate + publish + analytics) | Builder C |
 | 4. Ads | `engine/ads/` | `analyzed` -> `ad_recommended` -> `ad_approved` -> `ad_live` (recommend-only, human spend gate) | Builder C |
 
-## How to run
+## How to run the full loop
 
-No installs needed for the stub loop. Standard library only.
+No installs needed. Standard library only.
 
 ```bash
-python run.py "why your competitors all sound the same"
+python3 run.py "why your competitors all sound the same"
 ```
 
 This creates a post, walks it through every station, prints each status
-transition, and prints the final row as JSON. It runs green on minute one.
+transition, and prints the final row as JSON. A real PNG render lands in
+`renders/<post_id>.png` at 1080x1350. The post ends at `ad_live` if it is a
+winner, or `analyzed` if its engagement does not clear the promote threshold.
 
 The human gate and the ad spend gate auto-approve in `run.py` (via
-`auto_approve=True`) so the demo completes unattended.
+`auto_approve=True`) so the demo completes unattended. In production a human acts
+through the Flask gate (`python3 engine/mission/gate.py`, then the `/` page for
+content and the `/spend` page for ad spend).
+
+## Run the tests
+
+```bash
+python3 -m pytest -q
+```
+
+Every Python module has a test. Tests isolate the database with
+`monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "t.db"))` then `db.init_db()`.
+No test needs the network or an API key.
+
+## The commands (Claude Code skills + commands)
+
+The craft lives in skills, the loop runs through commands. Each command takes a
+post id (except generate, which takes a seed idea) and walks the post forward.
+
+| Command | Walks | Skills loaded |
+|---|---|---|
+| `/ai-cmo-generate "<seed>"` | `captured` -> `drafted` | content-os, positioning-angles, writing-style |
+| `/ai-cmo-render <id>` | `drafted` -> `qc_review` | brand-test |
+| `/ai-cmo-publish <id>` | `approved` -> `published` | publish-linkedin |
+| `/ai-cmo-engagement-sync <id>` | `published` -> `analyzed` | (none) |
+| `/ai-cmo-ads <id>` | `analyzed` -> `ad_live` | ad-copy |
+
+The one human decision lives between render and publish: `mission.gate`.
+
+## Going real (optional)
+
+Each stub upgrades to the real service by setting one env var. The loop never
+needs any of these.
+
+| Env var | Turns on |
+|---|---|
+| `AICMO_RENDER=playwright` | Studio renders the HTML in a real browser |
+| `AICMO_VISION_QC=claude` | Brand QC scores the image with a vision model |
+| `ZERNIO_API_KEY` | Mission publishes and pulls analytics for real |
+| `META_ACCESS_TOKEN` or `LINKEDIN_ACCESS_TOKEN` | Ads push creates a real campaign |
 
 ## For builders
 
@@ -91,9 +136,16 @@ Real builds will need the deps in `requirements.txt` and the keys in
 
 ```
 db.py            # FROZEN CONTRACT (schema + helpers)
-run.py           # orchestrator — walks one idea through every station
+run.py           # orchestrator, walks one idea through every station
 client-data/     # 6-layer context per client (lumen-skin demo)
-templates/       # social post template (Station 2 screenshots this)
+templates/       # social post template (Station 2 renders this)
 engine/          # the 4 stations
+.claude/skills/  # the craft: content-os, brand-test, publish-linkedin, ad-copy, etc.
+.claude/commands/ # the loop: ai-cmo-generate, render, publish, engagement-sync, ads
+tests/           # pytest, one test file per module, db isolated to tmp_path
+renders/         # generated PNGs (gitignored)
 data/            # aicmo.db created here (gitignored)
 ```
+
+For the architecture, the frozen contract, and the skills plus commands map, see
+`CLAUDE.md`.
