@@ -151,6 +151,38 @@ class DataForSEOClient:
             },
         )
 
+    def ranked_keywords(
+        self,
+        target_domain: str,
+        location_name: str = "United States",
+        language_code: str = "en",
+    ) -> dict:
+        """Keywords a domain already ranks for (DataForSEO Labs, competitor intel)."""
+        return self._post(
+            "dataforseo_labs/google/ranked_keywords/live",
+            {
+                "target": target_domain,
+                "location_name": location_name,
+                "language_code": language_code,
+            },
+        )
+
+    def serp_competitors(
+        self,
+        keywords: list,
+        location_name: str = "United States",
+        language_code: str = "en",
+    ) -> dict:
+        """Domains competing for a set of keywords (DataForSEO Labs)."""
+        return self._post(
+            "dataforseo_labs/google/serp_competitors/live",
+            {
+                "keywords": list(keywords),
+                "location_name": location_name,
+                "language_code": language_code,
+            },
+        )
+
     # ---- AEO -----------------------------------------------------------------
 
     def ai_keyword_data(
@@ -190,4 +222,11 @@ class DataForSEOClient:
         return self._post(
             f"ai_optimization/{model}/llm_responses/live",
             {"user_prompt": target, "location_name": location_name},
+        )
+
+    def llm_scraper(self, prompt: str, model: str = "chat_gpt") -> dict:
+        """Budget LLM response data (ChatGPT, Gemini) via the scraper endpoint."""
+        return self._post(
+            f"ai_optimization/{model}/llm_scraper/live",
+            {"user_prompt": prompt},
         )

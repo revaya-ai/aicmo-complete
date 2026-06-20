@@ -107,6 +107,12 @@ def test_methods_raise_when_not_configured(monkeypatch):
         client.llm_responses("what is a simple skincare routine")
     with pytest.raises(dataforseo.DataForSEONotConfigured):
         client.llm_mentions("Lumen Skin")
+    with pytest.raises(dataforseo.DataForSEONotConfigured):
+        client.ranked_keywords("lumenskin.com")
+    with pytest.raises(dataforseo.DataForSEONotConfigured):
+        client.serp_competitors(["skincare routine"])
+    with pytest.raises(dataforseo.DataForSEONotConfigured):
+        client.llm_scraper("what is a simple routine")
 
 
 # ---- auth header + request shape ---------------------------------------------
@@ -203,6 +209,21 @@ def test_llm_mentions_endpoint(monkeypatch):
     cap = _run(monkeypatch, lambda c: c.llm_mentions("Lumen Skin"))
     assert "ai_optimization" in cap["url"]
     assert cap["url"].endswith("/live")
+
+
+def test_ranked_keywords_endpoint(monkeypatch):
+    cap = _run(monkeypatch, lambda c: c.ranked_keywords("lumenskin.com"))
+    assert cap["url"].endswith("/dataforseo_labs/google/ranked_keywords/live")
+
+
+def test_serp_competitors_endpoint(monkeypatch):
+    cap = _run(monkeypatch, lambda c: c.serp_competitors(["skincare routine"]))
+    assert cap["url"].endswith("/dataforseo_labs/google/serp_competitors/live")
+
+
+def test_llm_scraper_endpoint(monkeypatch):
+    cap = _run(monkeypatch, lambda c: c.llm_scraper("what is a simple routine"))
+    assert cap["url"].endswith("/ai_optimization/chat_gpt/llm_scraper/live")
 
 
 def test_post_returns_parsed_json(monkeypatch):
