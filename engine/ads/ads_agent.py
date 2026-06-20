@@ -1,11 +1,11 @@
-"""STATION 4 — Ads (recommend-only): turn a winning post into a paid ad.
+"""STATION 4, Ads (recommend-only): turn a winning post into a paid ad.
 
 Reads:  status == analyzed   (uses metrics_json)
 Writes: status == ad_recommended   if the post is a winner
             (sets ad_target_post_id, ad_budget, ad_audience, ad_status)
-        then, after a HUMAN spend gate:
+        then, after the HUMAN spend gate:
         status == ad_approved        (sets ad_spend_approved_by)
-        status == ad_live            (ad pushed to the ad platform)
+        status == ad_live            (ad pushed via engine/ads/ads_push.py)
 
 If the post is NOT a winner, this station does nothing and leaves it at
 analyzed (the loop ends there).
@@ -13,63 +13,89 @@ analyzed (the loop ends there).
 Signature: run(post_id: str, auto_approve: bool = False) -> None
 
 This station NEVER spends money on its own. It recommends. A human approves the
-spend. For the demo, auto_approve=True approves the spend automatically.
+spend through engine/mission/gate.py (approve_spend). For the unattended demo,
+auto_approve=True approves the spend automatically and pushes the ad live.
 
-The real version reads engagement, decides if it beats a winner threshold,
-proposes budget + audience, then (after human approval) creates the campaign on
-Meta / LinkedIn Ads. The stub recommends only if mock follows > FOLLOW_THRESHOLD,
-auto-approves spend in run.py, and fakes ad_live.
+Winner detection uses an engagement RATE, not a single raw metric, so a post
+that is popular relative to its reach wins, and a post with high impressions but
+no interaction does not. The threshold and budget logic live in pure functions
+so both branches are testable offline.
 """
 
 import json
 
-from db import Status, get_post, advance, update_post
+from db import Status, get_post, advance
+from engine.mission.gate import approve_spend
+from engine.ads import ads_push
 
-FOLLOW_THRESHOLD = 10
+# A post wins if its engagement rate clears this. Engagement rate =
+# (likes + comments + shares + follows) / impressions.
+ENGAGEMENT_RATE_THRESHOLD = 0.03
+DEFAULT_BUDGET = 50.0
+DEFAULT_AUDIENCE = "Women 25-45, skincare-curious, US/CA"
+
+
+def engagement_rate(metrics: dict) -> float:
+    """Interactions per impression. 0.0 when there are no impressions."""
+    impressions = metrics.get("impressions", 0) or 0
+    if impressions <= 0:
+        return 0.0
+    interactions = (
+        metrics.get("likes", 0)
+        + metrics.get("comments", 0)
+        + metrics.get("shares", 0)
+        + metrics.get("follows", 0)
+    )
+    return interactions / impressions
+
+
+def is_winner(metrics: dict) -> bool:
+    """True if the post's engagement rate clears the promote threshold."""
+    return engagement_rate(metrics) >= ENGAGEMENT_RATE_THRESHOLD
+
+
+def recommend_budget(metrics: dict) -> float:
+    """Scale the budget with engagement. A stronger post earns more spend."""
+    rate = engagement_rate(metrics)
+    # Base budget, plus a bump for every point of rate over the threshold.
+    over = max(0.0, rate - ENGAGEMENT_RATE_THRESHOLD)
+    return round(DEFAULT_BUDGET + over * 1000, 2)
 
 
 def run(post_id: str, auto_approve: bool = False) -> None:
     post = get_post(post_id)
     metrics = json.loads(post.get("metrics_json") or "{}")
-    follows = metrics.get("follows", 0)
+    rate = engagement_rate(metrics)
 
     # --- Decide: is this a winner worth promoting? -----------------------
-    # TODO(builder): replace the single-metric check with a real winner score
-    # (engagement rate, follows-per-impression, topic fit, etc).
-    if follows <= FOLLOW_THRESHOLD:
+    if not is_winner(metrics):
         print(
-            f"    [ads] follows={follows} <= {FOLLOW_THRESHOLD}: not a winner, "
-            "no ad recommended."
+            f"    [ads] engagement rate {rate:.3f} < {ENGAGEMENT_RATE_THRESHOLD}: "
+            "not a winner, no ad recommended."
         )
         return
 
     # --- Recommend (no spend yet) ----------------------------------------
-    # TODO(builder): derive budget + audience from the brand + performance.
+    budget = recommend_budget(metrics)
     advance(
         post_id,
         Status.AD_RECOMMENDED,
         ad_target_post_id=post_id,
-        ad_budget=50.0,
-        ad_audience="Women 25-45, skincare-curious, US/CA",
+        ad_budget=budget,
+        ad_audience=DEFAULT_AUDIENCE,
         ad_status="recommended",
     )
     print(
-        f"    [ads] follows={follows} > {FOLLOW_THRESHOLD}: recommended "
-        "$50/audience women 25-45."
+        f"    [ads] engagement rate {rate:.3f} >= {ENGAGEMENT_RATE_THRESHOLD}: "
+        f"recommended ${budget} to {DEFAULT_AUDIENCE}."
     )
 
     # --- HUMAN spend gate ------------------------------------------------
     if not auto_approve:
-        # TODO(builder): in production, stop here and wait for a human to
-        # approve the spend (e.g. via the Flask gate). Do not spend money.
         print("    [ads] awaiting human spend approval. Stopping at ad_recommended.")
         return
 
-    advance(post_id, Status.AD_APPROVED, ad_spend_approved_by="AUTO (demo loop)")
+    approve_spend(post_id, approver="AUTO (demo loop)")
 
     # --- Go live ---------------------------------------------------------
-    # TODO(builder): create the real campaign via Meta/LinkedIn Ads API and
-    # store the campaign id in ad_status.
-    update_post(post_id, ad_status="live:fake-campaign-123")
-    advance(post_id, Status.AD_LIVE)
-    print("    [ads] STUB campaign live: fake-campaign-123")
+    ads_push.run(post_id, auto_approve=auto_approve)
