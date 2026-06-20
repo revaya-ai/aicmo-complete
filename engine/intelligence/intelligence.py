@@ -1,4 +1,4 @@
-"""INTELLIGENCE LAYER — the front of the funnel.
+"""INTELLIGENCE LAYER: the front of the funnel.
 
 Produces seed ideas from SEO/GEO/AEO signals, trends, and competitor signals.
 Those seeds feed the Strategist (the Brain station) which turns one seed into one

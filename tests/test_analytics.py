@@ -1,4 +1,4 @@
-"""Tests for Station 3 — Mission analytics.
+"""Tests for Station 3: Mission analytics.
 
 Verifies a published post advances to analyzed with a metrics_json payload that
 parses and carries the expected keys.

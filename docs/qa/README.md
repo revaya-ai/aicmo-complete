@@ -1,16 +1,17 @@
-# QA — How this system is checked
+# QA, How this system is checked
 
 This system is checked by independent QA agents, not by the agents that built it. The principle: the agent that checks is never the agent that built, and you watch for silence, not just errors. A component that is documented but absent, or a step that reports success while producing nothing real, is a failure even when nothing throws.
 
 ## The QA agents
 
-Three independent auditors live in `.claude/agents/qa/`, each with its own charter and non-negotiables:
+Four independent auditors live in `.claude/agents/qa/`, each with its own charter and non-negotiables:
 
-- **architecture-fidelity-auditor** — every component in `reference-architecture.md` exists and is genuinely wired, not faked or silently absent.
-- **runs-for-anyone-auditor** — a stranger can clone the repo and run it offline from the README alone, and every success produces a real artifact.
-- **brand-voice-fidelity-auditor** — voice discipline (no em dashes, no AI-slop), the human gate cannot be bypassed, and the repo is IP clean.
+- **architecture-fidelity-auditor**, every component in `reference-architecture.md` exists and is genuinely wired, not faked or silently absent.
+- **runs-for-anyone-auditor**, a stranger can clone the repo and run it offline from the README alone, and every success produces a real artifact.
+- **brand-voice-fidelity-auditor**, voice discipline (no em dashes, no AI-slop), the human gate cannot be bypassed, and the repo is IP clean.
+- **source-reconciliation-auditor**. Every concrete tool, channel, pipeline step, and named behavior in the primary source materials has a home in `reference-architecture.md`, including the Named-Integration Register. Audits the spec against the source, not the code against the spec.
 
-The source of truth they audit against is `reference-architecture.md`.
+The source of truth the first three audit against is `reference-architecture.md`. The source-reconciliation auditor audits that spec itself against the primary source materials, so it must be re-run whenever the architecture or an integration changes.
 
 ## Audit trail
 

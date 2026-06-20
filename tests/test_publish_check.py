@@ -1,4 +1,4 @@
-"""Tests for Station 3 — Mission publish_check.
+"""Tests for Station 3: Mission publish_check.
 
 Verifies the live verification runs without error, returns True in stub mode, and
 leaves status unchanged (it only logs).

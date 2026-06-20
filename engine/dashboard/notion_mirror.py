@@ -1,4 +1,4 @@
-"""DASHBOARD — mirror the pipeline to a Notion board (brick B3.10, no longer skipped).
+"""DASHBOARD: mirror the pipeline to a Notion board (brick B3.10, no longer skipped).
 
 This is the production surface for "approve from your phone". Instead of the
 Flask gate, the client sees a Notion board with a status property and approves

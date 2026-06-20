@@ -1,4 +1,4 @@
-"""Tests for Station 1 — Brain generate (deterministic offline stand-in).
+"""Tests for Station 1: Brain generate (deterministic offline stand-in).
 
 Verifies the draft is grounded in the real client context: the pillar comes from
 strategy.md (not a hardcoded constant), and the body references real context

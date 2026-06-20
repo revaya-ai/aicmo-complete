@@ -1,4 +1,4 @@
-"""FEEDBACK LOOP — harvest winners back into strategy.
+"""FEEDBACK LOOP: harvest winners back into strategy.
 
 Every correction and every winner sharpens the next draft. This module closes
 the loop: it reads the `analyzed` posts, ranks them by engagement, and appends a
@@ -83,7 +83,7 @@ def run_for_client(client: str = "lumen-skin") -> int:
     header_needed = not os.path.exists(path)
     with open(path, "a", encoding="utf-8") as fh:
         if header_needed:
-            fh.write(f"# Learnings — {client}\n\nWhat won, harvested by the feedback loop.\n")
+            fh.write(f"# Learnings: {client}\n\nWhat won, harvested by the feedback loop.\n")
         fh.write(note)
     return len(winners)
 

@@ -1,4 +1,4 @@
-"""Tests for Station 3 — Zernio client.
+"""Tests for Station 3: Zernio client.
 
 Verifies the stub returns a fake URL with no API key set, and never crashes.
 No network.

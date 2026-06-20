@@ -1,4 +1,4 @@
-"""DASHBOARD — render a simple weekly brief (markdown).
+"""DASHBOARD: render a simple weekly brief (markdown).
 
 Reads:  the metrics summary from engine/dashboard/metrics.py.
 Writes: a markdown brief to outputs/reports/ (or a path you pass).

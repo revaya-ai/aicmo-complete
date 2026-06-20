@@ -1,4 +1,4 @@
-"""Tests for Station 2 — Studio render.
+"""Tests for Station 2: Studio render.
 
 Verifies render.py fills the template, writes a REAL placeholder PNG to disk at
 the right dimensions, and sets image_path on the row. Stdlib only, no Playwright.

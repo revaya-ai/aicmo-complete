@@ -1,4 +1,4 @@
-"""Tests for Station 3 — Mission schedule.
+"""Tests for Station 3: Mission schedule.
 
 Verifies an approved post gets a future scheduled_for at a weekday 09:00 slot
 and advances to scheduled.

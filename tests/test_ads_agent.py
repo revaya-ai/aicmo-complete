@@ -1,4 +1,4 @@
-"""Tests for Station 4 — Ads agent and push.
+"""Tests for Station 4: Ads agent and push.
 
 Verifies a high-engagement post becomes ad_recommended, a low one stays
 analyzed, the spend gate advances ad_recommended -> ad_approved, and the push

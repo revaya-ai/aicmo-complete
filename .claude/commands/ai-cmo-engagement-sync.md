@@ -32,6 +32,23 @@ This writes engagement into `metrics_json` and advances to `analyzed`. Default m
 
 4. **Report back** the live state and the metrics: likes, comments, shares, follows, impressions.
 
+## Scheduled sync (cron)
+
+This command syncs one post by id. The scheduled cousin syncs the whole client
+at a fixed cadence so numbers stay fresh without a human in the loop:
+`engine/mission/engagement_sync.py`, function `sync_engagement(client)`.
+
+**Cadence:** nightly at 06:30 and 18:30. Engagement climbs fast in a post's
+first hours, so a morning and an evening pull keep metrics current for the Ads
+station and the dashboard. Run from the repo root:
+
+```bash
+python3 -c "from engine.mission import engagement_sync; engagement_sync.main()"
+```
+
+Offline by default (deterministic mock metrics, no key, no network). Live only
+when a configured analytics client is injected.
+
 ## Rules
 
 - Write ONLY this field: metrics_json (analytics). publish_check writes nothing on the row.

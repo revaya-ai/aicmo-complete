@@ -1,4 +1,4 @@
-"""DASHBOARD — aggregate the pipeline into a metrics summary.
+"""DASHBOARD: aggregate the pipeline into a metrics summary.
 
 Reads:  every row in the posts table (across all statuses).
 Writes: nothing to db.py. Returns a plain dict the report and the Notion mirror

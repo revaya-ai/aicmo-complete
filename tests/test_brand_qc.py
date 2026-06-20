@@ -1,4 +1,4 @@
-"""Tests for Station 2 — Studio brand_qc.
+"""Tests for Station 2: Studio brand_qc.
 
 Verifies the pure scoring function gates at 85, a clean render passes to
 qc_review, and an off-brand render routes to needs_revision. No vision model.

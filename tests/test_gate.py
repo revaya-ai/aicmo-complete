@@ -1,4 +1,4 @@
-"""Tests for Station 3 — Mission gate.
+"""Tests for Station 3: Mission gate.
 
 Verifies approve/reject logic without importing Flask. The Flask app is only
 constructed inside create_app(), never at module load, so these run offline.

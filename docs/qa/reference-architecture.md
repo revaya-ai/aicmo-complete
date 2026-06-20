@@ -65,3 +65,22 @@ A content marketing department that runs as software. One seed idea goes in. The
 - **Auditability.** Every step is traceable in the content record.
 - **No silence.** Every step that reports success produces a real artifact (a real image file, a real record row, a real report file).
 - **IP clean.** No copied third-party material, no peer or third-party client names in the repo.
+
+## Named-Integration Register
+
+This register is part of the QA source of truth. The reference architecture above is deliberately tool-agnostic, so a structurally-blind audit could not see when a concrete, named integration was missing. This table closes that gap by listing every concrete external tool the system uses or that the source materials named. Any new external integration must be added here. The architecture-fidelity auditor checks every WIRED row against the repo to confirm the module exists and is gated, and confirms every NOT BUILT row is a known gap rather than a silent miss.
+
+| Tool | Function | Env seam | Stub/offline behavior | Status in code |
+|---|---|---|---|---|
+| Anthropic (Claude) | Station 1 (Brain) text generation for the content chain. | `ANTHROPIC_API_KEY` | The brain generator (`engine/brain/generate.py`) uses no API and runs deterministic offline. The env var is declared in `.env.example` but not consumed by code. | STUB-ONLY |
+| Placid | Station 2 (Studio) on-brand template composite images, so all type lands through the template, never written by an image model. | `PLACID_API_TOKEN`, `PLACID_TEMPLATE_UUID` (optional default) | `PlacidClient` raises `PlacidNotConfigured` before any network call when the token is absent; `engine/studio/render.py` catches it and falls back to the offline render (PIL default, then stdlib placeholder PNG). Real path only taken when `AICMO_RENDER=placid` and the token is set. | WIRED |
+| Gemini / Nano Banana | Image model option for Studio render. | none | Not gated by any env var. No client module in the repo. Render uses PIL/stdlib by default and Placid or Playwright as the only opt-in real paths. | NOT BUILT |
+| Playwright | Station 2 (Studio) HTML/CSS template screenshot render at 1080x1350 @2x. | `AICMO_RENDER=playwright` (selector, not a credential) | Only taken when `AICMO_RENDER=playwright` and Playwright is importable; otherwise falls back to PIL default, then stdlib placeholder. Offline by default. | WIRED |
+| Zernio | Station 3 (Mission) one publishing API to LinkedIn, IG, and X, plus analytics pull. | `ZERNIO_API_KEY` | `engine/mission/zernio.py` returns a deterministic fake post URL when the key is absent. Real API call only when the key is set. | WIRED |
+| Meta Ads | Station 4 (Ads) recommend-only Meta ad campaign creation. | `META_ACCESS_TOKEN` (consumed in `engine/ads/ads_push.py`, declared in `.env.example`) | Returns a stable stub campaign id when no token is set; real campaign only when the token is present. | WIRED |
+| LinkedIn Ads | Station 4 (Ads) recommend-only LinkedIn ad campaign creation. | `LINKEDIN_ACCESS_TOKEN` (consumed in `engine/ads/ads_push.py`, declared in `.env.example`) | Returns a stable stub campaign id when no token is set; real campaign only when the token is present. | WIRED |
+| DataForSEO | Intelligence and AEO layer SEO/AEO/LLM-visibility signals. | `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` (both required) | `DataForSEOClient` raises `DataForSEONotConfigured` before any network call when either credential is missing; the Intelligence layer falls back to a deterministic offline stub. | WIRED |
+| GSC (Google Search Console) | Intelligence layer search-console signals. | `GSC_CREDENTIALS` (named in `engine/intelligence/intelligence.py` docstring only) | No client module, no real gating. Only DataForSEO is actually wired in the Intelligence layer; GSC is documented intent, not built. | NOT BUILT |
+| Apify | Intelligence layer competitor scrapes. | `APIFY_TOKEN` (named in `engine/intelligence/intelligence.py` docstring only) | No client module, no real gating. Documented intent, not built. | NOT BUILT |
+| Notion | Station J client surface: pipeline DB, approval board, dashboard mirror. | `NOTION_TOKEN` | `engine/dashboard/notion_mirror.py` writes a local JSON board (`outputs/notion-mirror.json`) when the token is absent; pushes to a Notion database when set. | WIRED |
+| Backblaze B2 | Nightly encrypted backups and the client no-AI-image asset store. | none | No client module, no env var declared. Backup integrity and the real-image asset store are uncaptured. | NOT BUILT |

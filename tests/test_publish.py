@@ -1,4 +1,4 @@
-"""Tests for Station 3 — Mission publish.
+"""Tests for Station 3: Mission publish.
 
 Verifies a scheduled post advances to published with a URL, in stub mode.
 """

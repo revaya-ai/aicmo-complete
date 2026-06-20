@@ -16,7 +16,10 @@ Read the client context first:
 - `client-data/<client>/brand-and-audience.md` for the audience and what turns them off.
 - `client-data/<client>/voice.md` for how the brand sounds.
 
-## The five steps (run in order, lock each before the next)
+## The steps (run in order, lock each before the next)
+
+### Phase 0: Voice of Customer
+Run before Intake. The source materials start the chain here, not at the seed idea. Load `engine/brain/voc.py` (`voice_of_customer(client, seed_idea)`). It reads the client context (brand-and-audience.md, strategy.md) and returns the audience persona, the real pain points, and the actual phrases customers use. Offline by default and grounded in the loaded context. A configured DataForSEO client may enrich the phrasing, but offline stands on its own. Lock the VoC signal. Every step below references it: Intake restates the seed in the customer's language, Angle targets a real pain point, Hook borrows a real phrase.
 
 ### Step 1: Intake
 Restate the seed idea in one plain line. Strip it to the single thing it is really about. Lock that line.

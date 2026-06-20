@@ -1,4 +1,4 @@
-"""LEAK GUARD — the structural IP boundary from the deck.
+"""LEAK GUARD: the structural IP boundary from the deck.
 
 The multi-repo model gives every client their own box. The rule that keeps the
 model honest: a client box contains no other client's name. This module scans a
