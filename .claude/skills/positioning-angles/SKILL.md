@@ -17,16 +17,16 @@ The angle answers: "Of all the ways to say this, which one creates tension this 
 
 Pick one. Each is reusable across topics.
 
-- **The Simpler Truth** — the honest, less complicated version of a thing people overcomplicate.
-- **The Hidden Cost** — the real price of the status quo the reader has not counted.
-- **The Myth Correction** — name a common belief, show why it is wrong, give the fix.
-- **The Insider View** — what people who actually do this know that outsiders do not.
-- **The Contrarian Take** — the defensible opposite of the popular advice.
-- **The Origin Lesson** — a specific moment or mistake that taught the lesson, told plainly.
-- **The Cost Of Doing Nothing** — what keeps getting worse while the reader waits.
-- **The Permission Slip** — telling the reader they are allowed to stop doing the exhausting thing.
-- **The Quiet Win** — the small, unglamorous habit that beats the flashy one.
-- **The Comparison** — two paths side by side, with the honest tradeoff named.
+- **The Simpler Truth**: the honest, less complicated version of a thing people overcomplicate.
+- **The Hidden Cost**: the real price of the status quo the reader has not counted.
+- **The Myth Correction**: name a common belief, show why it is wrong, give the fix.
+- **The Insider View**: what people who actually do this know that outsiders do not.
+- **The Contrarian Take**: the defensible opposite of the popular advice.
+- **The Origin Lesson**: a specific moment or mistake that taught the lesson, told plainly.
+- **The Cost Of Doing Nothing**: what keeps getting worse while the reader waits.
+- **The Permission Slip**: telling the reader they are allowed to stop doing the exhausting thing.
+- **The Quiet Win**: the small, unglamorous habit that beats the flashy one.
+- **The Comparison**: two paths side by side, with the honest tradeoff named.
 
 ## How to choose
 
