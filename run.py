@@ -22,6 +22,7 @@ from engine.studio import brand_qc as studio_brand_qc
 from engine.mission import gate as mission_gate
 from engine.mission import schedule as mission_schedule
 from engine.mission import publish as mission_publish
+from engine.mission import publish_check as mission_publish_check
 from engine.mission import analytics as mission_analytics
 from engine.ads import ads_agent
 
@@ -35,6 +36,7 @@ PIPELINE = [
     ("mission.gate", mission_gate),
     ("mission.schedule", mission_schedule),
     ("mission.publish", mission_publish),
+    ("mission.publish_check", mission_publish_check),
     ("mission.analytics", mission_analytics),
     ("ads.ads_agent", ads_agent),
 ]

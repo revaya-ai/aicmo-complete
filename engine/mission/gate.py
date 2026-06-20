@@ -1,4 +1,4 @@
-"""STATION 3 — Mission: the human approval gate.
+"""STATION 3, Mission: the human approval gate.
 
 Reads:  status == qc_review
 Writes: status == approved          (human says ship it)
@@ -16,15 +16,26 @@ auto_approve=True and this function approves automatically.
 from db import Status, get_post, advance
 
 
+def approve(post_id: str, note: str = "Approved by human.") -> None:
+    """Human says ship it. Advance qc_review -> approved with a note."""
+    advance(post_id, Status.APPROVED, human_note=note)
+
+
+def reject(post_id: str, note: str = "Rejected by human.") -> None:
+    """Human kills it. Advance qc_review -> rejected with a note."""
+    advance(post_id, Status.REJECTED, human_note=note)
+
+
+def request_revision(post_id: str, note: str = "Revision requested by human.") -> None:
+    """Human wants changes. Route qc_review -> needs_revision with a note."""
+    advance(post_id, Status.NEEDS_REVISION, human_note=note)
+
+
 def run(post_id: str, auto_approve: bool = False) -> None:
     post = get_post(post_id)
 
     if auto_approve:
-        advance(
-            post_id,
-            Status.APPROVED,
-            human_note="AUTO-APPROVED (demo loop).",
-        )
+        approve(post_id, note="AUTO-APPROVED (demo loop).")
         return
 
     # TODO(builder): without auto_approve, this should block until a human
@@ -60,7 +71,7 @@ def create_app():
                 <div style="border:1px solid #ccc;padding:16px;margin:16px 0;">
                   <h3>{p['hook']}</h3>
                   <p>{p['body']}</p>
-                  <p><em>QC score: {p['qc_score']} — {p['qc_notes']}</em></p>
+                  <p><em>QC score: {p['qc_score']}. {p['qc_notes']}</em></p>
                   <img src="/{p['image_path']}" style="max-width:300px;" />
                   <form method="post" action="/decide/{p['id']}">
                     <button name="decision" value="approved">Approve</button>
@@ -80,7 +91,45 @@ def create_app():
         db.advance(post_id, decision, human_note=f"Human chose: {decision}")
         return redirect("/")
 
+    @app.route("/spend")
+    def spend_index():
+        rows = db.list_by_status(Status.AD_RECOMMENDED)
+        if not rows:
+            return "<h1>AI CMO Spend Gate</h1><p>No ad recommendations waiting.</p>"
+        items = []
+        for p in rows:
+            items.append(
+                f"""
+                <div style="border:1px solid #ccc;padding:16px;margin:16px 0;">
+                  <h3>{p['hook']}</h3>
+                  <p>Recommended budget: ${p['ad_budget']}</p>
+                  <p>Audience: {p['ad_audience']}</p>
+                  <form method="post" action="/spend/decide/{p['id']}">
+                    <button name="decision" value="ad_approved">Approve spend</button>
+                    <button name="decision" value="rejected">Reject</button>
+                  </form>
+                </div>
+                """
+            )
+        return "<h1>AI CMO Spend Gate</h1>" + "".join(items)
+
+    @app.route("/spend/decide/<post_id>", methods=["POST"])
+    def spend_decide(post_id):
+        decision = request.form["decision"]
+        if decision == Status.AD_APPROVED:
+            approve_spend(post_id, approver="Human (spend gate)")
+        elif decision == Status.REJECTED:
+            db.advance(post_id, Status.REJECTED, human_note="Spend rejected by human.")
+        else:
+            return "bad decision", 400
+        return redirect("/spend")
+
     return app
+
+
+def approve_spend(post_id: str, approver: str = "Human (spend gate)") -> None:
+    """Spend gate. Advance ad_recommended -> ad_approved, recording the approver."""
+    advance(post_id, Status.AD_APPROVED, ad_spend_approved_by=approver)
 
 
 if __name__ == "__main__":
