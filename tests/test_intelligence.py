@@ -126,3 +126,150 @@ def test_sweep_still_returns_plain_list():
     seeds = intelligence.sweep("lumen-skin", dfs_client=_FakeUnconfiguredClient())
     assert isinstance(seeds, list)
     assert seeds and "idea" in seeds[0]
+
+
+# ---- GSC and Apify live paths ------------------------------------------------
+
+
+class _FakeConfiguredGSC:
+    """A fake GSC client that is configured and returns canned top queries."""
+
+    def __init__(self):
+        self.calls = []
+
+    def is_configured(self):
+        return True
+
+    def search_analytics(self, *a, **k):
+        self.calls.append(("search_analytics", a, k))
+        return {
+            "rows": [
+                {"keys": ["best vitamin c serum"], "clicks": 120},
+                {"keys": ["how to layer skincare"], "clicks": 90},
+                {"keys": ["niacinamide benefits"], "clicks": 70},
+            ]
+        }
+
+
+class _FakeConfiguredApify:
+    """A fake Apify client that is configured and returns canned items."""
+
+    def __init__(self):
+        self.calls = []
+
+    def is_configured(self):
+        return True
+
+    def run_actor_get_items(self, actor_id, run_input):
+        self.calls.append((actor_id, run_input))
+        return [
+            {"caption": "competitor launches 5 step routine"},
+            {"text": "competitor pushes another acid serum"},
+        ]
+
+
+class _FakeUnconfiguredSimple:
+    def is_configured(self):
+        return False
+
+
+def test_gsc_live_path_produces_seeds():
+    fake_gsc = _FakeConfiguredGSC()
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeUnconfiguredClient(),
+        gsc_client=fake_gsc,
+        apify_client=_FakeUnconfiguredSimple(),
+    )
+    assert result["path"] == "live:gsc"
+    assert fake_gsc.calls, "the live path must actually query GSC"
+    assert any(s["source"] == "live:gsc" for s in result["seeds"])
+    pillars = set(intelligence.load_pillars("lumen-skin"))
+    assert {s["pillar"] for s in result["seeds"]}.issubset(pillars)
+
+
+def test_apify_live_path_produces_seeds():
+    fake_apify = _FakeConfiguredApify()
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeUnconfiguredClient(),
+        gsc_client=_FakeUnconfiguredSimple(),
+        apify_client=fake_apify,
+    )
+    assert result["path"] == "live:apify"
+    assert fake_apify.calls, "the live path must actually run the Apify actor"
+    assert any(s["source"] == "live:apify" for s in result["seeds"])
+    pillars = set(intelligence.load_pillars("lumen-skin"))
+    assert {s["pillar"] for s in result["seeds"]}.issubset(pillars)
+
+
+def test_all_three_sources_compose_path():
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeConfiguredClient(),
+        gsc_client=_FakeConfiguredGSC(),
+        apify_client=_FakeConfiguredApify(),
+    )
+    assert result["path"] == "live:dataforseo+gsc+apify"
+    labels = {s["source"] for s in result["seeds"]}
+    assert "live:dataforseo" in labels
+    assert "live:gsc" in labels
+    assert "live:apify" in labels
+
+
+def test_dfs_only_path_label_unchanged():
+    # Back-compat: DataForSEO configured, GSC and Apify not, path stays exact.
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeConfiguredClient(),
+        gsc_client=_FakeUnconfiguredSimple(),
+        apify_client=_FakeUnconfiguredSimple(),
+    )
+    assert result["path"] == "live:dataforseo"
+
+
+def test_all_unconfigured_path_is_offline_stub():
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeUnconfiguredClient(),
+        gsc_client=_FakeUnconfiguredSimple(),
+        apify_client=_FakeUnconfiguredSimple(),
+    )
+    assert result["path"] == "offline:stub"
+    assert all(s["source"].startswith("stub:") for s in result["seeds"])
+
+
+def test_gsc_falls_back_on_client_error():
+    class _BoomGSC:
+        def is_configured(self):
+            return True
+
+        def search_analytics(self, *a, **k):
+            raise RuntimeError("gsc down")
+
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeUnconfiguredClient(),
+        gsc_client=_BoomGSC(),
+        apify_client=_FakeUnconfiguredSimple(),
+    )
+    assert result["path"] == "offline:stub"
+    assert result["seeds"]
+
+
+def test_apify_falls_back_on_client_error():
+    class _BoomApify:
+        def is_configured(self):
+            return True
+
+        def run_actor_get_items(self, *a, **k):
+            raise RuntimeError("apify down")
+
+    result = intelligence.sweep_with_meta(
+        "lumen-skin",
+        dfs_client=_FakeUnconfiguredClient(),
+        gsc_client=_FakeUnconfiguredSimple(),
+        apify_client=_BoomApify(),
+    )
+    assert result["path"] == "offline:stub"
+    assert result["seeds"]

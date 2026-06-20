@@ -257,6 +257,46 @@ def _render_with_placid(hook: str, body: str, image_path: str) -> bool:
         return False
 
 
+def _gemini_client():
+    """Build a Gemini image client. Indirected so tests can inject a fake."""
+    from engine.integrations.gemini import GeminiImageClient
+
+    return GeminiImageClient()
+
+
+def _render_with_gemini(hook: str, body: str, image_path: str) -> bool:
+    """Optional backend: generate an on-brand image with Gemini (Nano Banana).
+
+    Builds a brand-appropriate prompt from the hook and body, calls the image
+    model, and writes the returned bytes to image_path. Returns True on success,
+    False if Gemini is not configured or anything fails, so the caller falls back
+    to the offline render and the loop never breaks.
+    """
+    try:
+        client = _gemini_client()
+    except Exception:
+        return False
+    if not client.is_configured():
+        return False
+    try:
+        prompt = (
+            "Editorial skincare social image, calm and minimal. "
+            "Warm off-white background (#F7F3EC), deep brown ink (#2E2620), "
+            "a single soft terracotta accent (#C77B58). Clean negative space, "
+            "premium quiet aesthetic. "
+            f"Headline idea: {hook}. "
+            f"Supporting message: {body}."
+        )
+        data = client.generate_image(prompt)
+        if not data:
+            return False
+        with open(image_path, "wb") as fh:
+            fh.write(data)
+        return True
+    except Exception:
+        return False
+
+
 def render_ad(post_id: str) -> str:
     """STUDIO contributes to ADS (brick B4.2): render an ad-sized creative.
 
@@ -287,6 +327,10 @@ def render_ad(post_id: str) -> str:
         drawn = _render_with_placid(hook, body, image_path)
         if drawn:
             print("[render] ad backend: placid")
+    elif backend == "gemini":
+        drawn = _render_with_gemini(hook, body, image_path)
+        if drawn:
+            print("[render] ad backend: gemini")
     elif backend == "playwright":
         drawn = _render_ad_with_playwright(html, image_path)
         if drawn:
@@ -336,6 +380,10 @@ def run(post_id: str, auto_approve: bool = False) -> None:
         drawn = _render_with_placid(post["hook"], post["body"], image_path)
         if drawn:
             print("[render] backend: placid")
+    elif backend == "gemini":
+        drawn = _render_with_gemini(post["hook"], post["body"], image_path)
+        if drawn:
+            print("[render] backend: gemini")
     elif backend == "playwright":
         drawn = _render_with_playwright(html, image_path)
         if drawn:

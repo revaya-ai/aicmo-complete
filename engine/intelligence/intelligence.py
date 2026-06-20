@@ -16,16 +16,24 @@ Two paths:
    tagged with the pillar it serves and a stub source label so the demo runs
    fully offline.
 
-2. REAL (opt in, behind env checks): DATAFORSEO_LOGIN / GSC_CREDENTIALS /
-   APIFY_TOKEN turn on live keyword, search-console, and competitor scrapes. The
-   real path shapes its output the same way the stub does so the Strategist keeps
-   working unchanged. The real path is never taken without the matching env var.
+2. REAL (opt in, behind env checks): DATAFORSEO_LOGIN, GSC_ACCESS_TOKEN plus
+   GSC_SITE_URL, and APIFY_TOKEN turn on live keyword, search-console, and
+   competitor scrapes. The real path shapes its output the same way the stub does
+   so the Strategist keeps working unchanged. The real path is never taken
+   without the matching env var, and the path label reports which sources ran.
 """
 
 import os
 import re
 
+from engine.integrations.apify import ApifyClient
 from engine.integrations.dataforseo import DataForSEOClient
+from engine.integrations.gsc import GSCClient
+
+# Default Apify actor used for competitor scrapes. A caller can override it by
+# passing actor_id through to _apify_seeds. This is a real Apify Instagram scraper
+# actor id; nothing runs unless APIFY_TOKEN is set and the live path is taken.
+DEFAULT_APIFY_ACTOR = "apify/instagram-scraper"
 
 # Each pillar gets a small bank of grounded seed templates. The sweep fills the
 # pillar name in and tags the source so a reviewer can see where it came from.
@@ -149,16 +157,114 @@ def _extract_keywords(resp: dict) -> list:
     return keywords
 
 
-def sweep_with_meta(client: str = "lumen-skin", dfs_client=None) -> dict:
-    """Run the sweep and report which path ran. Returns {seeds, path}.
+def _gsc_seeds(pillars: list, gsc_client) -> list:
+    """Build seeds from Google Search Console top queries, grounded in pillars.
 
-    path is "live:dataforseo" when the injected (or default) DataForSEO client is
-    configured and returns usable keywords, otherwise "offline:stub". On any
-    client error the sweep falls back to the offline stub. No silent pretending:
-    the path is always stated.
+    Pulls the recent top queries for the configured property and turns each into
+    a reader-first seed line. Queries are mapped to pillars round-robin so the
+    live demand still serves the strategy rather than landing all on one pillar.
+    Every seed is labeled live:gsc so a reviewer can trace the source. Raises on
+    any client error so the caller can fall back to the stub.
+    """
+    seeds = []
+    if not pillars:
+        return seeds
+    resp = gsc_client.search_analytics(
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        dimensions=["query"],
+        row_limit=25,
+    )
+    for i, query in enumerate(_extract_gsc_queries(resp)):
+        pillar = pillars[i % len(pillars)]
+        seeds.append(
+            {
+                "idea": f"answer the search: {query}",
+                "pillar": pillar,
+                "source": "live:gsc",
+                "signal": "real Search Console demand",
+            }
+        )
+    return seeds
 
-    dfs_client lets tests inject a fake. By default the real client is
-    constructed; with no credentials it is simply not configured and we stay
+
+def _extract_gsc_queries(resp: dict) -> list:
+    """Pull the query strings out of a Search Console searchAnalytics response.
+
+    Tolerant of the rows -> keys shape. Returns [] if the response is empty or
+    shaped differently, so a thin response degrades rather than crashing.
+    """
+    queries = []
+    for row in (resp or {}).get("rows", []) or []:
+        keys = (row or {}).get("keys") or []
+        if keys and keys[0]:
+            queries.append(keys[0])
+    return queries
+
+
+def _apify_seeds(pillars: list, apify_client, actor_id: str = DEFAULT_APIFY_ACTOR) -> list:
+    """Build seeds from an Apify competitor scrape, grounded in client pillars.
+
+    Runs a competitor-scrape actor and turns each returned item into a
+    competitor-signal seed line. Items are mapped to pillars round-robin so the
+    signal still serves the strategy. Every seed is labeled live:apify so a
+    reviewer can trace the source. Raises on any client error so the caller can
+    fall back to the stub.
+    """
+    seeds = []
+    if not pillars:
+        return seeds
+    items = apify_client.run_actor_get_items(
+        actor_id,
+        {"resultsLimit": 25},
+    )
+    for i, hook in enumerate(_extract_apify_hooks(items)):
+        pillar = pillars[i % len(pillars)]
+        seeds.append(
+            {
+                "idea": f"react to a competitor angle: {hook}",
+                "pillar": pillar,
+                "source": "live:apify",
+                "signal": "competitor signal from Apify",
+            }
+        )
+    return seeds
+
+
+def _extract_apify_hooks(items: list) -> list:
+    """Pull short text hooks out of Apify dataset items.
+
+    Tolerant of varied item shapes: tries caption, then text, then title. Returns
+    [] if items are empty or shaped differently, so a thin response degrades
+    rather than crashing.
+    """
+    hooks = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("caption") or item.get("text") or item.get("title")
+        if text:
+            hooks.append(str(text).strip().splitlines()[0][:120])
+    return hooks
+
+
+def sweep_with_meta(
+    client: str = "lumen-skin",
+    dfs_client=None,
+    gsc_client=None,
+    apify_client=None,
+) -> dict:
+    """Run the sweep and report which live sources ran. Returns {seeds, path}.
+
+    The path label honestly composes from the live sources that contributed, in a
+    fixed order: dataforseo, gsc, apify. So a DataForSEO-only run reports exactly
+    "live:dataforseo"; all three report "live:dataforseo+gsc+apify"; nothing
+    configured reports "offline:stub". On any client error that source is skipped
+    and the sweep falls back, never crashing. No silent pretending: the path is
+    always stated.
+
+    The three client args let tests inject fakes. By default the real clients are
+    constructed; with no credentials they are simply not configured and we stay
     offline.
     """
     pillars = load_pillars(client)
@@ -167,27 +273,67 @@ def sweep_with_meta(client: str = "lumen-skin", dfs_client=None) -> dict:
 
     if dfs_client is None:
         dfs_client = DataForSEOClient()
+    if gsc_client is None:
+        gsc_client = GSCClient()
+    if apify_client is None:
+        apify_client = ApifyClient()
+
+    seeds = []
+    sources = []
 
     if dfs_client.is_configured():
         try:
             live = _live_seeds(pillars, dfs_client)
             if live:
-                return {"seeds": live, "path": "live:dataforseo"}
+                seeds.extend(live)
+                sources.append("dataforseo")
         except Exception:
             # Any client/network error falls back to the deterministic stub.
             pass
 
+    if gsc_client.is_configured():
+        try:
+            live = _gsc_seeds(pillars, gsc_client)
+            if live:
+                seeds.extend(live)
+                sources.append("gsc")
+        except Exception:
+            pass
+
+    if apify_client.is_configured():
+        try:
+            live = _apify_seeds(pillars, apify_client)
+            if live:
+                seeds.extend(live)
+                sources.append("apify")
+        except Exception:
+            pass
+
+    if sources:
+        return {"seeds": seeds, "path": "live:" + "+".join(sources)}
+
     return {"seeds": _stub_seeds(pillars), "path": "offline:stub"}
 
 
-def sweep(client: str = "lumen-skin", dfs_client=None) -> list:
+def sweep(
+    client: str = "lumen-skin",
+    dfs_client=None,
+    gsc_client=None,
+    apify_client=None,
+) -> list:
     """Run the intelligence sweep. Returns a list of candidate seed-idea dicts.
 
     Each dict: {idea, pillar, source, signal}. Grounded in the client's strategy
-    pillars. Deterministic and offline unless DataForSEO credentials are present.
-    Thin wrapper over sweep_with_meta for back-compat with the rest of the system.
+    pillars. Deterministic and offline unless DataForSEO, GSC, or Apify
+    credentials are present. Thin wrapper over sweep_with_meta for back-compat
+    with the rest of the system.
     """
-    return sweep_with_meta(client, dfs_client=dfs_client)["seeds"]
+    return sweep_with_meta(
+        client,
+        dfs_client=dfs_client,
+        gsc_client=gsc_client,
+        apify_client=apify_client,
+    )["seeds"]
 
 
 def main():

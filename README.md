@@ -128,9 +128,9 @@ The four-station loop is the spine. These modules complete the reference archite
 
 | Area | Module(s) | What it does |
 |---|---|---|
-| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | Candidate seed ideas grounded in `strategy.md` pillars. Live SEO via DataForSEO when credentials are set, offline stub otherwise. |
+| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | Candidate seed ideas grounded in `strategy.md` pillars. Live signals via DataForSEO (SEO), GSC (Search Console), and Apify (competitor scrapes) when credentials are set, offline stub otherwise. The path label reports which sources ran. |
 | AEO (AI visibility) | `engine/aeo/aeo.py` | AI visibility report: is the brand cited in AI answers for its target questions. Writes `outputs/reports/<client>-aeo-visibility.md`. Offline by default. |
-| Integrations | `engine/integrations/dataforseo.py`, `engine/integrations/placid.py` | Credential-gated clients, stdlib only. DataForSEO (SEO + AEO) needs `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD`. Placid (template composite render) needs `PLACID_API_TOKEN`. No network call without the credential. |
+| Integrations | `engine/integrations/dataforseo.py`, `placid.py`, `gemini.py`, `gsc.py`, `apify.py`, `backblaze.py` | Credential-gated clients, stdlib only. DataForSEO needs `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`. Placid (template composite render) needs `PLACID_API_TOKEN`. Gemini/Nano Banana render needs `GEMINI_API_KEY`. GSC needs `GSC_ACCESS_TOKEN` + `GSC_SITE_URL`. Apify needs `APIFY_TOKEN`. Backblaze needs `BACKBLAZE_KEY_ID` + `BACKBLAZE_APPLICATION_KEY` + `BACKBLAZE_BUCKET`. No network call without the credential. |
 | Feedback loop | `engine/feedback.py` | Harvests winners into `client-data/<client>/learnings.md`. |
 | Dashboard + reporting | `engine/dashboard/metrics.py`, `report.py`, `notion_mirror.py` | Pipeline metrics, weekly brief, Notion board mirror (stub). |
 | Ad creative | `engine/studio/render.py` `render_ad()` | Ad-sized (1080x1080) creative, wired into the ads push. |
@@ -146,12 +146,15 @@ needs any of these.
 | Env var | Turns on |
 |---|---|
 | `AICMO_RENDER=placid` + `PLACID_API_TOKEN` | Studio composites the post onto an on-brand Placid template (post + ad creative). Optional `PLACID_TEMPLATE_UUID` sets the default template |
+| `AICMO_RENDER=gemini` + `GEMINI_API_KEY` | Studio generates the image with the Gemini (Nano Banana) image model. Falls back to the offline render on any error |
 | `AICMO_RENDER=playwright` | Studio renders the HTML in a real browser (post + ad creative) |
 | `AICMO_VISION_QC=claude` | Brand QC scores the image with a vision model |
 | `ZERNIO_API_KEY` | Mission publishes and pulls analytics for real |
 | `META_ACCESS_TOKEN` or `LINKEDIN_ACCESS_TOKEN` | Ads push creates a real campaign |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | Intelligence pulls live SEO keyword demand and the AEO report pulls live AI visibility data (both required). Pay-as-you-go, $50 minimum deposit, calls are fractions of a cent. No live call without both set. |
-| `GSC_CREDENTIALS`, `APIFY_TOKEN` | Intelligence pulls live GSC and competitor signals |
+| `GSC_ACCESS_TOKEN` + `GSC_SITE_URL` | Intelligence adds live Google Search Console query demand (both required, pre-obtained OAuth2 bearer token) |
+| `APIFY_TOKEN` | Intelligence adds live competitor scrape signals via Apify |
+| `BACKBLAZE_KEY_ID` + `BACKBLAZE_APPLICATION_KEY` + `BACKBLAZE_BUCKET` | Mission backs up pipeline artifacts off-site to Backblaze B2 (all three required) |
 | `NOTION_TOKEN` | Dashboard and human gate mirror to a real Notion board |
 
 ### Render backends (Studio, Station 2)
@@ -167,12 +170,17 @@ the `AICMO_RENDER` switch:
   only fires when `AICMO_RENDER=placid` is set AND `PLACID_API_TOKEN` is present.
   Set `PLACID_TEMPLATE_UUID` to pick the default template. On any error it falls
   back to the offline Pillow or stdlib render, so the loop never breaks.
+- **Gemini / Nano Banana** (`AICMO_RENDER=gemini`): the image-model backend.
+  Generates the post graphic with the Gemini `gemini-2.5-flash-image` model from
+  a brand-aware prompt. Credential-gated: it only fires when `AICMO_RENDER=gemini`
+  is set AND `GEMINI_API_KEY` is present. On any error it falls back to the
+  offline render, so the loop never breaks.
 - **Playwright** (`AICMO_RENDER=playwright`): screenshots the filled HTML
   template in a real browser.
 
-Selection order: Placid (if configured), then Playwright, then the Pillow
-default, then the stdlib fallback. With no `AICMO_RENDER` env var the default
-path is unchanged: offline, stdlib or Pillow, no token, no network.
+Selection order: Placid (if configured), then Gemini, then Playwright, then the
+Pillow default, then the stdlib fallback. With no `AICMO_RENDER` env var the
+default path is unchanged: offline, stdlib or Pillow, no token, no network.
 
 The Placid client lives at `engine/integrations/placid.py`. It is stdlib only
 (urllib + json + os) and never opens a socket unless `PLACID_API_TOKEN` is set.
