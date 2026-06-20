@@ -28,10 +28,10 @@ Write a one-line topic. Name which content pillar it serves, chosen from the cli
 Load the `positioning-angles` skill. Choose one named angle that creates real tension for this audience and pillar. Lock the angle name and a one-line reason.
 
 ### Step 4: Hook
-Write line one only. Five to ten words. It opens an information gap the reader needs closed. No throat-clearing, no "in today's world". Lock the hook.
+Load the `hook-library` skill. Write line one only. Five to ten words. Pick one named hook pattern and fill it with the real topic so it opens an information gap the reader needs closed. No throat-clearing, no "in today's world". Lock the hook.
 
 ### Step 5: Story and shift
-Load the `writing-style` skill. First outline the body arc in three or four beats. Then write the body to that arc. Run the writing-style self-check. The body is not locked until the self-check passes.
+Load the `story-structures` skill and the `writing-style` skill. First pick one named body arc and outline it in three or four beats. Then write the body to that arc. Run the writing-style self-check. The body is not locked until the self-check passes.
 
 ## Locking rules
 
