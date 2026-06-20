@@ -6,9 +6,13 @@ Writes: status == analyzed    (sets metrics_json)
 Signature: run(post_id: str, auto_approve: bool = False) -> None
 
 The default path writes deterministic mock metrics derived from the post URL, so
-the Ads station always has something to decide on and tests are stable. A real
-path (ZERNIO_API_KEY set) would poll the platform analytics API and keep the same
-JSON shape so Ads keeps working unchanged.
+the Ads station always has something to decide on and tests are stable.
+
+When ZERNIO_API_KEY is set, real_metrics() is the seam for a live analytics pull.
+It is currently a STUB that raises NotImplementedError: there is no real Zernio
+call wired yet, so it falls back to mock metrics rather than pretending. The
+docstring and code both say so plainly. The same JSON shape is returned either
+way so Ads keeps working unchanged when the real call is built.
 """
 
 import hashlib
@@ -16,6 +20,19 @@ import json
 import os
 
 from db import Status, get_post, advance
+
+
+def real_metrics(published_url: str) -> dict:
+    """STUB seam for a live Zernio analytics pull.
+
+    Not implemented yet. When built, this will call the Zernio analytics API for
+    published_url and return the same dict shape as mock_metrics(). Until then it
+    raises so callers fall back to mock_metrics() instead of silently faking a
+    real pull.
+    """
+    raise NotImplementedError(
+        "real Zernio analytics not wired yet; using mock_metrics() fallback"
+    )
 
 
 def mock_metrics(seed: str) -> dict:
@@ -41,10 +58,14 @@ def mock_metrics(seed: str) -> dict:
 
 def run(post_id: str, auto_approve: bool = False) -> None:
     post = get_post(post_id)
+    seed = post.get("published_url") or post_id
     if os.environ.get("ZERNIO_API_KEY"):
-        # Real path would call zernio analytics here and shape the result the
-        # same way mock_metrics does. Left as the upgrade seam.
-        metrics = mock_metrics(post.get("published_url") or post_id)
+        # Real seam. real_metrics() is a stub that raises until the live Zernio
+        # call is built, so we fall back to mock metrics rather than faking it.
+        try:
+            metrics = real_metrics(seed)
+        except NotImplementedError:
+            metrics = mock_metrics(seed)
     else:
-        metrics = mock_metrics(post.get("published_url") or post_id)
+        metrics = mock_metrics(seed)
     advance(post_id, Status.ANALYZED, metrics_json=json.dumps(metrics))

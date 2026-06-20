@@ -11,15 +11,20 @@ def _fresh_db(monkeypatch, tmp_path):
     db_module.init_db()
 
 
-def _rendered_post():
+def _rendered_post(monkeypatch=None, tmp_path=None):
     pid = db_module.create_post(client="lumen-skin", seed_idea="seed")
     db_module.advance(
         pid,
         db_module.Status.DRAFTED,
         hook="A short clean hook.",
         body="A calm, short body.",
-        image_path="renders/fake.png",
     )
+    # Produce a REAL render on disk so QC has actual pixels to inspect.
+    from engine.studio import render
+
+    if tmp_path is not None:
+        monkeypatch.setattr(render, "RENDERS_DIR", str(tmp_path / "renders"))
+    render.run(pid)
     return pid
 
 
@@ -43,7 +48,7 @@ def test_run_clean_advances_to_qc_review(monkeypatch, tmp_path):
     _fresh_db(monkeypatch, tmp_path)
     from engine.studio import brand_qc
 
-    pid = _rendered_post()
+    pid = _rendered_post(monkeypatch, tmp_path)
     brand_qc.run(pid)
     row = db_module.get_post(pid)
     assert row["status"] == "qc_review"
@@ -54,7 +59,7 @@ def test_run_off_brand_routes_to_needs_revision(monkeypatch, tmp_path):
     _fresh_db(monkeypatch, tmp_path)
     from engine.studio import brand_qc
 
-    pid = _rendered_post()
+    pid = _rendered_post(monkeypatch, tmp_path)
     # Force the off-brand branch deterministically.
     monkeypatch.setattr(brand_qc, "_detect_off_brand", lambda post: True)
     brand_qc.run(pid)

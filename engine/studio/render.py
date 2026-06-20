@@ -1,20 +1,23 @@
-"""STATION 2 — Studio: draft -> rendered image.
+"""STATION 2, Studio: draft to rendered image.
 
 Reads:  status == drafted   (uses hook, body)
 Writes: image_path          (status stays drafted; brand_qc moves it next)
 
 Signature: run(post_id: str, auto_approve: bool = False) -> None
 
-Two render paths:
+Three render paths, in order of preference:
 
-1. DEFAULT (stdlib only, no dependencies): fill the HTML template with the
-   post's hook and body, then write a deterministic placeholder PNG at exactly
-   1080x1350 to renders/<post_id>.png. The placeholder is a real, valid PNG file
-   painted in the brand background color so the whole loop runs offline.
+1. PREFERRED DEFAULT (Pillow, if importable): draw the hook and body text onto
+   the 1080x1350 canvas in the brand colors from brand.css, so the default PNG
+   actually contains the post's words. No browser needed.
 
-2. REAL (opt in with AICMO_RENDER=playwright): screenshot the filled template
+2. STDLIB FALLBACK (no Pillow): write a deterministic solid brand-color PNG at
+   1080x1350 using the stdlib only. This carries no text, so the QC step is
+   honest that it is a structural check, not a pixel inspection.
+
+3. REAL (opt in with AICMO_RENDER=playwright): screenshot the filled template
    with Playwright at 1080x1350 @2x. Only taken when the env var is set AND
-   playwright is importable, so the default path never requires it.
+   playwright is importable.
 
 The HTML is always written next to the PNG (renders/<post_id>.html) so a human
 can open the real layout in a browser.
@@ -27,10 +30,14 @@ import zlib
 
 from db import get_post, update_post
 
-# Brand spec, kept in sync with client-data/lumen-skin/visual-brand.md.
+# Brand spec, kept in sync with client-data/lumen-skin/visual-brand.md and
+# client-data/lumen-skin/brand.css.
 WIDTH = 1080
 HEIGHT = 1350
 BG_RGB = (0xF7, 0xF3, 0xEC)  # warm off-white --bg
+INK_RGB = (0x2E, 0x26, 0x20)  # deep brown --ink
+ACCENT_RGB = (0xC7, 0x7B, 0x58)  # soft terracotta --accent
+PAD = 96  # generous whitespace --pad
 
 # Ad creative dimensions (brick B4.2). Square 1080x1080 is the safe default for
 # Meta and LinkedIn feed ads, distinct from the 1080x1350 organic post.
@@ -84,6 +91,90 @@ def _placeholder_png(path: str, width: int, height: int, rgb) -> None:
         fh.write(png)
 
 
+def _render_with_pil(hook: str, body: str, image_path: str, width: int, height: int) -> bool:
+    """Preferred default render: draw the hook and body onto the canvas with PIL.
+
+    Returns True if Pillow is available and the image was drawn, False otherwise
+    so the caller can fall back to the stdlib placeholder. Uses the brand colors
+    (background, ink, terracotta accent rule) so the PNG is on brand AND carries
+    the post's actual words.
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return False
+
+    img = Image.new("RGB", (width, height), BG_RGB)
+    draw = ImageDraw.Draw(img)
+
+    # Try a real TrueType font from common locations; fall back to a sized
+    # default font so text is always drawn at a legible size.
+    def _load_font(size):
+        candidates = (
+            "DejaVuSerif.ttf",
+            "DejaVuSans.ttf",
+            "/System/Library/Fonts/Supplemental/Georgia.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        )
+        for name in candidates:
+            try:
+                return ImageFont.truetype(name, size)
+            except (OSError, IOError):
+                continue
+        try:
+            return ImageFont.load_default(size)
+        except TypeError:
+            return ImageFont.load_default()
+
+    hook_font = _load_font(72)
+    body_font = _load_font(34)
+
+    text_width = width - 2 * PAD
+
+    def _wrap(text, font):
+        lines = []
+        for paragraph in text.split("\n"):
+            if not paragraph.strip():
+                lines.append("")
+                continue
+            words = paragraph.split()
+            current = ""
+            for word in words:
+                trial = (current + " " + word).strip()
+                if draw.textlength(trial, font=font) <= text_width:
+                    current = trial
+                else:
+                    if current:
+                        lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+        return lines
+
+    y = PAD
+    # Hook (serif, ink).
+    for line in _wrap(hook, hook_font):
+        draw.text((PAD, y), line, fill=INK_RGB, font=hook_font)
+        bbox = draw.textbbox((0, 0), line or "Ag", font=hook_font)
+        y += int((bbox[3] - bbox[1]) * 1.3) + 8
+
+    # Terracotta accent rule.
+    y += 24
+    draw.rectangle([PAD, y, PAD + 120, y + 6], fill=ACCENT_RGB)
+    y += 48
+
+    # Body (sans, ink).
+    for line in _wrap(body, body_font):
+        draw.text((PAD, y), line, fill=INK_RGB, font=body_font)
+        bbox = draw.textbbox((0, 0), line or "Ag", font=body_font)
+        y += int((bbox[3] - bbox[1]) * 1.5) + 6
+
+    img.save(image_path, "PNG")
+    return True
+
+
 def _render_with_playwright(html: str, image_path: str) -> bool:
     """Real render path. Returns True on success, False if unavailable."""
     try:
@@ -122,10 +213,15 @@ def render_ad(post_id: str) -> str:
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
 
-    used_real = False
+    hook = post.get("hook") or ""
+    body = post.get("body") or ""
+
+    drawn = False
     if os.environ.get("AICMO_RENDER") == "playwright":
-        used_real = _render_ad_with_playwright(html, image_path)
-    if not used_real:
+        drawn = _render_ad_with_playwright(html, image_path)
+    if not drawn:
+        drawn = _render_with_pil(hook, body, image_path, AD_WIDTH, AD_HEIGHT)
+    if not drawn:
         _placeholder_png(image_path, AD_WIDTH, AD_HEIGHT, BG_RGB)
     return image_path
 
@@ -159,10 +255,12 @@ def run(post_id: str, auto_approve: bool = False) -> None:
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
 
-    used_real = False
+    drawn = False
     if os.environ.get("AICMO_RENDER") == "playwright":
-        used_real = _render_with_playwright(html, image_path)
-    if not used_real:
+        drawn = _render_with_playwright(html, image_path)
+    if not drawn:
+        drawn = _render_with_pil(post["hook"], post["body"], image_path, WIDTH, HEIGHT)
+    if not drawn:
         _placeholder_png(image_path, WIDTH, HEIGHT, BG_RGB)
 
     # Store a repo-relative path so the Flask gate can serve it directly. If the

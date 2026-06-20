@@ -1,8 +1,9 @@
 # These are for the REAL station builds. The stub loop (python run.py "...")
-# runs on the Python standard library ONLY — you do not need to install
+# runs on the Python standard library ONLY. You do not need to install
 # anything to see the pipeline go green.
 
 anthropic      # Station 1 (Brain): Claude calls for generation
 jinja2         # Station 2 (Studio): render post.html.j2
+pillow         # Station 2 (Studio): draw hook + body text onto the default PNG
 playwright     # Station 2 (Studio): screenshot HTML -> 1080x1350 PNG
 flask          # Station 3 (Mission): the human approval gate web app

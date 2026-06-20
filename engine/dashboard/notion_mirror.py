@@ -44,10 +44,11 @@ def _card(post: dict) -> dict:
 
 def _write_board(cards: list, path: str, board_name: str) -> str:
     if os.environ.get("NOTION_TOKEN"):
-        # Real path: push cards to a Notion database here, keeping the same card
-        # shape. Left as the upgrade seam. We still write the JSON so there is an
-        # offline record either way.
-        mode = "real"
+        # STUB SEAM, not a real call yet. When built, this branch will push the
+        # cards to a Notion database via the Notion API. Today it only labels the
+        # board "stub-real" and still writes the JSON, so it does not pretend a
+        # Notion push happened that did not. No silent success.
+        mode = "stub-real"
     else:
         mode = "stub"
     board = {"mode": mode, "board": board_name, "cards": cards}
@@ -57,8 +58,14 @@ def _write_board(cards: list, path: str, board_name: str) -> str:
     return path
 
 
-def mirror(path: str = MIRROR_PATH) -> str:
-    """Mirror the entire pipeline to a board. Returns the path written."""
+def mirror(path: str = None) -> str:
+    """Mirror the entire pipeline to a board. Returns the path written.
+
+    path defaults to MIRROR_PATH read at call time, so monkeypatching the module
+    attribute (tests) and reassigning it both take effect.
+    """
+    if path is None:
+        path = MIRROR_PATH
     cards = []
     for status in db.STATUSES:
         for post in db.list_by_status(status):
@@ -66,8 +73,10 @@ def mirror(path: str = MIRROR_PATH) -> str:
     return _write_board(cards, path, board_name="AI CMO pipeline")
 
 
-def mirror_gate(path: str = MIRROR_PATH) -> str:
+def mirror_gate(path: str = None) -> str:
     """Mirror ONLY qc_review items: the human gate 'approve from your phone' view."""
+    if path is None:
+        path = MIRROR_PATH
     cards = [_card(p) for p in db.list_by_status(db.Status.QC_REVIEW)]
     return _write_board(cards, path, board_name="AI CMO human gate")
 

@@ -25,6 +25,7 @@ from engine.mission import publish as mission_publish
 from engine.mission import publish_check as mission_publish_check
 from engine.mission import analytics as mission_analytics
 from engine.ads import ads_agent
+from engine.dashboard import notion_mirror
 
 CLIENT = "lumen-skin"
 
@@ -61,6 +62,12 @@ def main() -> None:
             print(f"{before:<14} (no transition)  ({label})")
         else:
             print(f"{before:<14} -> {after:<16} ({label})")
+
+    # Dashboard step: mirror the whole pipeline to the Notion board (stub JSON
+    # offline). Part of the loop so the end-to-end run actually produces the
+    # mirror file, no silent success.
+    mirror_path = notion_mirror.mirror()
+    print(f"\n[dashboard] wrote notion mirror to {mirror_path}")
 
     print("\nFinal row:")
     print(json.dumps(get_post(post_id), indent=2))
