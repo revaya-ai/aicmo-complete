@@ -32,6 +32,11 @@ WIDTH = 1080
 HEIGHT = 1350
 BG_RGB = (0xF7, 0xF3, 0xEC)  # warm off-white --bg
 
+# Ad creative dimensions (brick B4.2). Square 1080x1080 is the safe default for
+# Meta and LinkedIn feed ads, distinct from the 1080x1350 organic post.
+AD_WIDTH = 1080
+AD_HEIGHT = 1080
+
 RENDERS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "renders")
 TEMPLATE_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "templates", "social", "post.html.j2"
@@ -92,6 +97,54 @@ def _render_with_playwright(html: str, image_path: str) -> bool:
         )
         page.set_content(html, wait_until="networkidle")
         page.screenshot(path=image_path, clip={"x": 0, "y": 0, "width": WIDTH, "height": HEIGHT})
+        browser.close()
+    return True
+
+
+def render_ad(post_id: str) -> str:
+    """STUDIO contributes to ADS (brick B4.2): render an ad-sized creative.
+
+    Reads:  the post's hook and body.
+    Writes: an ad-sized placeholder PNG to renders/<post_id>-ad.png and returns
+            its path. The caller (the ads flow) records the path on the row; this
+            function does not advance any status.
+
+    Default path is stdlib-only (a valid placeholder PNG at AD_WIDTH x AD_HEIGHT
+    in the brand background color). The real Playwright path is taken only when
+    AICMO_RENDER=playwright is set, mirroring run() so the loop stays offline.
+    """
+    post = get_post(post_id)
+    os.makedirs(RENDERS_DIR, exist_ok=True)
+    image_path = os.path.join(RENDERS_DIR, f"{post_id}-ad.png")
+    html_path = os.path.join(RENDERS_DIR, f"{post_id}-ad.html")
+
+    html = fill_template(post.get("hook") or "", post.get("body") or "")
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(html)
+
+    used_real = False
+    if os.environ.get("AICMO_RENDER") == "playwright":
+        used_real = _render_ad_with_playwright(html, image_path)
+    if not used_real:
+        _placeholder_png(image_path, AD_WIDTH, AD_HEIGHT, BG_RGB)
+    return image_path
+
+
+def _render_ad_with_playwright(html: str, image_path: str) -> bool:
+    """Real ad render path at ad dimensions. Returns True on success."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return False
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(
+            viewport={"width": AD_WIDTH, "height": AD_HEIGHT}, device_scale_factor=2
+        )
+        page.set_content(html, wait_until="networkidle")
+        page.screenshot(
+            path=image_path, clip={"x": 0, "y": 0, "width": AD_WIDTH, "height": AD_HEIGHT}
+        )
         browser.close()
     return True
 

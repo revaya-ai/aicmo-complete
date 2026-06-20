@@ -66,6 +66,15 @@ def run(post_id: str, auto_approve: bool = False) -> None:
     if post["status"] != Status.AD_APPROVED:
         print(f"    [ads_push] post {post_id} is {post['status']}, not ad_approved. Skipping.")
         return
+
+    # Studio contributes the ad creative (brick B4.2) at ad dimensions before the
+    # campaign goes live. Stdlib-only by default. The creative path is logged; the
+    # campaign id is what lands in ad_status (the frozen contract field).
+    from engine.studio.render import render_ad
+
+    creative_path = render_ad(post_id)
+    print(f"    [ads_push] ad creative rendered to {creative_path}")
+
     campaign_id = create_campaign(post)
     advance(post_id, Status.AD_LIVE, ad_status=campaign_id)
     print(f"    [ads_push] campaign {campaign_id} (budget ${post.get('ad_budget')})")
