@@ -1,0 +1,16 @@
+/* Lumen Skin Studio — brand CSS variables.
+   Used by templates/social/post.html.j2 so the renderer (Station 2)
+   produces on-brand graphics. Keep in sync with visual-brand.md. */
+
+:root {
+  --bg: #F7F3EC;        /* warm off-white background */
+  --accent: #C77B58;    /* soft terracotta */
+  --ink: #2E2620;       /* deep brown text */
+  --muted: #D9CFC1;     /* sand */
+
+  --font-head: "Fraunces", "Playfair Display", Georgia, serif;
+  --font-body: "Inter", "Work Sans", system-ui, sans-serif;
+
+  --pad: 96px;          /* generous whitespace */
+  --radius: 0px;        /* editorial, square edges */
+}

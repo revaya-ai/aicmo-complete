@@ -1,0 +1,55 @@
+{# Lumen Skin Studio — social post template (1080x1350).
+   Station 2 (engine/studio/render.py) renders this with Jinja2, substituting
+   {{ hook }} and {{ body }}, then screenshots it with Playwright at 1080x1350
+   into renders/<id>.png. Uses brand.css variables for on-brand styling. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../client-data/lumen-skin/brand.css" />
+  <style>
+    html, body { margin: 0; padding: 0; }
+    .post {
+      width: 1080px;
+      height: 1350px;
+      box-sizing: border-box;
+      background: var(--bg);
+      color: var(--ink);
+      padding: var(--pad);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-family: var(--font-body);
+    }
+    .hook {
+      font-family: var(--font-head);
+      font-size: 72px;
+      line-height: 1.1;
+      font-weight: 600;
+    }
+    .body {
+      font-size: 34px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .rule { height: 6px; width: 120px; background: var(--accent); }
+    .brand {
+      font-family: var(--font-head);
+      font-size: 28px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="post">
+    <div>
+      <div class="hook">{{ hook }}</div>
+      <div class="rule" style="margin: 40px 0;"></div>
+      <div class="body">{{ body }}</div>
+    </div>
+    <div class="brand">Lumen Skin Studio</div>
+  </div>
+</body>
+</html>

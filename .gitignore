@@ -1,0 +1,6 @@
+data/*.db
+.env
+__pycache__/
+*.pyc
+renders/
+.DS_Store
