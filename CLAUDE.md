@@ -47,6 +47,21 @@ status. Never write another station's columns.
 Every station module exposes `run(post_id, auto_approve=False)`. `run.py` walks
 them in order.
 
+## Beyond the four stations (full architecture)
+
+These modules complete the reference architecture. All offline by default.
+
+| Area | Module(s) | Reads -> Writes |
+|---|---|---|
+| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | `client-data/<client>/strategy.md` -> candidate seed dicts (no db write) |
+| Feedback loop | `engine/feedback.py` | `analyzed` posts -> appends `client-data/<client>/learnings.md` |
+| Dashboard | `engine/dashboard/metrics.py`, `report.py`, `notion_mirror.py` | whole pipeline -> summary dict, `outputs/reports/*.md`, `outputs/notion-mirror.json` |
+| Ad creative | `engine/studio/render.py` `render_ad(post_id)` | post hook/body -> ad-sized PNG (wired into `ads_push`) |
+| Leak guard (IP boundary) | `engine/leak_guard.py` | a client-data folder -> list of foreign client names |
+
+Intelligence and feedback do not advance rows; they propose and learn. The
+leak guard reads and reports only.
+
 ## The one human decision
 
 `mission.gate` is the heart of the product: a human approves or rejects the post
@@ -59,31 +74,47 @@ For the unattended demo, `run.py` passes `auto_approve=True`.
 
 In `.claude/skills/`. Skills inform, they do not execute.
 
+- `intelligence`: how the analyst turns signals into grounded seed ideas.
 - `content-os`: the five-step Brick chain (Intake, Topic, Angle, Hook, Story).
 - `positioning-angles`: named angles and how to choose.
+- `hook-library`: reusable first-line hook patterns (loaded by content-os Step 4).
+- `story-structures`: reusable body arcs (loaded by content-os Step 5).
 - `writing-style`: anti-AI-slop rules and self-check.
 - `brand-test`: the 0 to 100 visual scoring rubric, 85 pass line.
 - `publish-linkedin`: native LinkedIn formatting rules.
 - `ad-copy`: compress a winning post into ad form, one CTA.
+- `feedback-loop`: harvest winners back into the client learnings note.
 
 ## Commands (the loop)
 
 In `.claude/commands/`. Commands orchestrate, loading the relevant skills.
 
+- `/ai-cmo-intel [client]`: front of funnel, output candidate seed ideas.
 - `/ai-cmo-generate "<seed>"`: `captured` -> `drafted`.
 - `/ai-cmo-render <id>`: `drafted` -> `qc_review`.
 - `/ai-cmo-publish <id>`: `approved` -> `published`.
 - `/ai-cmo-engagement-sync <id>`: `published` -> `analyzed`.
 - `/ai-cmo-ads <id>`: `analyzed` -> `ad_live`.
+- `/ai-cmo-report`: aggregate the pipeline, write the weekly brief, mirror Notion.
+- `/ai-cmo-onboard <slug>`: stand up a new client box (six layers + brand spec).
+
+## Architecture docs
+
+- `docs/architecture/multi-repo-model.md`: AIOS to AI CMO Core to per-client box,
+  and the leak-guard rule (a client box contains no other client's name).
+- `docs/architecture/agents.md`: the persona registry, mapping each
+  marketing-department role to its skills, commands, and engine modules.
 
 ## Stub seams (offline by default)
 
 | Env var | Real service |
 |---|---|
-| `AICMO_RENDER=playwright` | Studio browser render |
+| `AICMO_RENDER=playwright` | Studio browser render (post + ad creative) |
 | `AICMO_VISION_QC=claude` | Vision brand QC |
 | `ZERNIO_API_KEY` | Mission publish + analytics |
 | `META_ACCESS_TOKEN` / `LINKEDIN_ACCESS_TOKEN` | Ads push campaign |
+| `DATAFORSEO_LOGIN` / `GSC_CREDENTIALS` / `APIFY_TOKEN` | Intelligence live signals |
+| `NOTION_TOKEN` | Notion board mirror (dashboard + human gate) |
 
 None are required. The stubs are deterministic so tests and the demo are stable.
 

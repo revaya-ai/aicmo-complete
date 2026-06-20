@@ -98,13 +98,30 @@ post id (except generate, which takes a seed idea) and walks the post forward.
 
 | Command | Walks | Skills loaded |
 |---|---|---|
-| `/ai-cmo-generate "<seed>"` | `captured` -> `drafted` | content-os, positioning-angles, writing-style |
+| `/ai-cmo-intel [client]` | (front of funnel) candidate seed ideas | intelligence |
+| `/ai-cmo-generate "<seed>"` | `captured` -> `drafted` | content-os, positioning-angles, writing-style, hook-library, story-structures |
 | `/ai-cmo-render <id>` | `drafted` -> `qc_review` | brand-test |
 | `/ai-cmo-publish <id>` | `approved` -> `published` | publish-linkedin |
 | `/ai-cmo-engagement-sync <id>` | `published` -> `analyzed` | (none) |
 | `/ai-cmo-ads <id>` | `analyzed` -> `ad_live` | ad-copy |
+| `/ai-cmo-report` | (reads pipeline) weekly brief + Notion mirror | feedback-loop |
+| `/ai-cmo-onboard <slug>` | (stands up a new client box) | intelligence |
 
 The one human decision lives between render and publish: `mission.gate`.
+
+## Beyond the core loop (full architecture)
+
+The four-station loop is the spine. These modules complete the reference architecture and all run offline by default.
+
+| Area | Module(s) | What it does |
+|---|---|---|
+| Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | Candidate seed ideas grounded in `strategy.md` pillars. |
+| Feedback loop | `engine/feedback.py` | Harvests winners into `client-data/<client>/learnings.md`. |
+| Dashboard + reporting | `engine/dashboard/metrics.py`, `report.py`, `notion_mirror.py` | Pipeline metrics, weekly brief, Notion board mirror (stub). |
+| Ad creative | `engine/studio/render.py` `render_ad()` | Ad-sized (1080x1080) creative, wired into the ads push. |
+| Leak guard (IP boundary) | `engine/leak_guard.py` | Scans a client box for any other client's name. |
+
+Pattern libraries (`hook-library`, `story-structures`) and architecture docs (`docs/architecture/multi-repo-model.md`, `docs/architecture/agents.md`) round out the craft and the map.
 
 ## Going real (optional)
 
@@ -113,10 +130,12 @@ needs any of these.
 
 | Env var | Turns on |
 |---|---|
-| `AICMO_RENDER=playwright` | Studio renders the HTML in a real browser |
+| `AICMO_RENDER=playwright` | Studio renders the HTML in a real browser (post + ad creative) |
 | `AICMO_VISION_QC=claude` | Brand QC scores the image with a vision model |
 | `ZERNIO_API_KEY` | Mission publishes and pulls analytics for real |
 | `META_ACCESS_TOKEN` or `LINKEDIN_ACCESS_TOKEN` | Ads push creates a real campaign |
+| `DATAFORSEO_LOGIN`, `GSC_CREDENTIALS`, `APIFY_TOKEN` | Intelligence pulls live SEO/GSC/competitor signals |
+| `NOTION_TOKEN` | Dashboard and human gate mirror to a real Notion board |
 
 ## For builders
 
@@ -139,10 +158,12 @@ db.py            # FROZEN CONTRACT (schema + helpers)
 run.py           # orchestrator, walks one idea through every station
 client-data/     # 6-layer context per client (lumen-skin demo)
 templates/       # social post template (Station 2 renders this)
-engine/          # the 4 stations
-.claude/skills/  # the craft: content-os, brand-test, publish-linkedin, ad-copy, etc.
-.claude/commands/ # the loop: ai-cmo-generate, render, publish, engagement-sync, ads
+engine/          # the 4 stations + intelligence, feedback, dashboard, leak_guard
+.claude/skills/  # the craft: content-os, brand-test, publish-linkedin, ad-copy, intelligence, feedback-loop, hook-library, story-structures, etc.
+.claude/commands/ # the loop: ai-cmo-intel, generate, render, publish, engagement-sync, ads, report, onboard
+docs/architecture/ # multi-repo-model.md, agents.md (persona registry)
 tests/           # pytest, one test file per module, db isolated to tmp_path
+outputs/         # reports/ (weekly brief), notion-mirror.json (gitignored)
 renders/         # generated PNGs (gitignored)
 data/            # aicmo.db created here (gitignored)
 ```
