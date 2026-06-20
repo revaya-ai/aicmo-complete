@@ -1,4 +1,4 @@
-# Voice — Lumen Skin Studio
+# Voice: Lumen Skin Studio
 
 ## How we sound
 Like a smart friend who happens to make skincare. Warm, plain-spoken, a little

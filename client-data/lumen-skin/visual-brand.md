@@ -1,4 +1,4 @@
-# Visual Brand — Lumen Skin Studio
+# Visual Brand: Lumen Skin Studio
 
 The Studio (Station 2) renders posts against this. Brand QC scores against it.
 
