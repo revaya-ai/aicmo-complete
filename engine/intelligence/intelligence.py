@@ -25,6 +25,8 @@ Two paths:
 import os
 import re
 
+from engine.integrations.dataforseo import DataForSEOClient
+
 # Each pillar gets a small bank of grounded seed templates. The sweep fills the
 # pillar name in and tags the source so a reviewer can see where it came from.
 # These are deliberately generic skincare angles so the demo client lands real,
@@ -92,28 +94,100 @@ def _stub_seeds(pillars: list) -> list:
     return seeds
 
 
-def sweep(client: str = "lumen-skin") -> list:
-    """Run the intelligence sweep. Returns a list of candidate seed-idea dicts.
+# A small per-pillar bank of seed keywords used to query DataForSEO when it is
+# configured. The keywords stay grounded in the client's pillars so the live
+# results still serve the strategy, not a random keyword dump.
+_PILLAR_KEYWORD_SEEDS = {
+    "Education": ["simple skincare routine", "skincare ingredients to skip"],
+    "Proof": ["skincare before and after", "best selling serum ingredients"],
+    "Behind the studio": ["small batch skincare", "indie skincare brand"],
+    "Offers": ["skincare starter set", "skincare money back guarantee"],
+}
 
-    Each dict: {idea, pillar, source, signal}. Grounded in the client's strategy
-    pillars. Deterministic and offline unless a real-data env var is set.
+
+def _live_seeds(pillars: list, dfs_client) -> list:
+    """Build seeds from DataForSEO keyword ideas, grounded in client pillars.
+
+    For each pillar we ask the client for keyword ideas around that pillar's
+    seed keywords, then turn the returned keyword strings into reader-first seed
+    lines. Every seed is tagged to a real pillar and labeled live:dataforseo so a
+    reviewer can trace the source. Raises on any client error so the caller can
+    fall back to the stub.
+    """
+    seeds = []
+    for pillar in pillars:
+        keywords = _PILLAR_KEYWORD_SEEDS.get(pillar)
+        if not keywords:
+            continue
+        resp = dfs_client.keyword_ideas(keywords)
+        for kw in _extract_keywords(resp):
+            seeds.append(
+                {
+                    "idea": f"answer the search: {kw}",
+                    "pillar": pillar,
+                    "source": "live:dataforseo",
+                    "signal": "real keyword demand from DataForSEO Labs",
+                }
+            )
+    return seeds
+
+
+def _extract_keywords(resp: dict) -> list:
+    """Pull the keyword strings out of a DataForSEO keyword_ideas response.
+
+    Tolerant of the nested tasks -> result -> items shape. Returns [] if the
+    response is empty or shaped differently, so a thin response degrades to the
+    stub rather than crashing.
+    """
+    keywords = []
+    for task in (resp or {}).get("tasks", []):
+        for result in (task or {}).get("result", []) or []:
+            for item in (result or {}).get("items", []) or []:
+                kw = item.get("keyword")
+                if kw:
+                    keywords.append(kw)
+    return keywords
+
+
+def sweep_with_meta(client: str = "lumen-skin", dfs_client=None) -> dict:
+    """Run the sweep and report which path ran. Returns {seeds, path}.
+
+    path is "live:dataforseo" when the injected (or default) DataForSEO client is
+    configured and returns usable keywords, otherwise "offline:stub". On any
+    client error the sweep falls back to the offline stub. No silent pretending:
+    the path is always stated.
+
+    dfs_client lets tests inject a fake. By default the real client is
+    constructed; with no credentials it is simply not configured and we stay
+    offline.
     """
     pillars = load_pillars(client)
     if not pillars:
-        return []
+        return {"seeds": [], "path": "offline:stub"}
 
-    use_real = any(
-        os.environ.get(v)
-        for v in ("DATAFORSEO_LOGIN", "GSC_CREDENTIALS", "APIFY_TOKEN")
-    )
-    if use_real:
-        # Real path would query DataForSEO (keyword/SERP), Google Search Console
-        # (real queries already ranking), and Apify (competitor posts), then map
-        # each signal onto a strategy pillar. It must return the same dict shape
-        # as the stub. Left as the upgrade seam; we never reach it offline.
-        return _stub_seeds(pillars)
+    if dfs_client is None:
+        dfs_client = DataForSEOClient()
 
-    return _stub_seeds(pillars)
+    if dfs_client.is_configured():
+        try:
+            live = _live_seeds(pillars, dfs_client)
+            if live:
+                return {"seeds": live, "path": "live:dataforseo"}
+        except Exception:
+            # Any client/network error falls back to the deterministic stub.
+            pass
+
+    return {"seeds": _stub_seeds(pillars), "path": "offline:stub"}
+
+
+def sweep(client: str = "lumen-skin", dfs_client=None) -> list:
+    """Run the intelligence sweep. Returns a list of candidate seed-idea dicts.
+
+    Each dict: {idea, pillar, source, signal}. Grounded in the client's strategy
+    pillars. Deterministic and offline unless DataForSEO credentials are present.
+    Thin wrapper over sweep_with_meta for back-compat with the rest of the system.
+    """
+    return sweep_with_meta(client, dfs_client=dfs_client)["seeds"]
 
 
 def main():
@@ -123,7 +197,9 @@ def main():
     p = argparse.ArgumentParser(description="Run the intelligence sweep for a client.")
     p.add_argument("--client", default="lumen-skin")
     a = p.parse_args()
-    print(json.dumps(sweep(a.client), indent=2))
+    result = sweep_with_meta(a.client)
+    print(f"[intelligence] path: {result['path']}")
+    print(json.dumps(result["seeds"], indent=2))
 
 
 if __name__ == "__main__":
