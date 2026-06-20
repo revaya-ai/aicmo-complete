@@ -15,9 +15,18 @@ Three render paths, in order of preference:
    1080x1350 using the stdlib only. This carries no text, so the QC step is
    honest that it is a structural check, not a pixel inspection.
 
-3. REAL (opt in with AICMO_RENDER=playwright): screenshot the filled template
-   with Playwright at 1080x1350 @2x. Only taken when the env var is set AND
-   playwright is importable.
+3. REAL PLACID (opt in with AICMO_RENDER=placid): composite the post onto an
+   on-brand Placid template and save the returned image. Only taken when the env
+   var is set AND the Placid client is configured (PLACID_API_TOKEN present). On
+   any error it falls back to the offline render so the loop never breaks.
+
+4. REAL PLAYWRIGHT (opt in with AICMO_RENDER=playwright): screenshot the filled
+   template with Playwright at 1080x1350 @2x. Only taken when the env var is set
+   AND playwright is importable.
+
+Selection order: placid (if configured) -> playwright -> PIL default -> stdlib
+fallback. With no AICMO_RENDER env var the default path stays exactly as before:
+PIL when importable, stdlib placeholder otherwise. Offline, no token, no network.
 
 The HTML is always written next to the PNG (renders/<post_id>.html) so a human
 can open the real layout in a browser.
@@ -26,6 +35,7 @@ can open the real layout in a browser.
 import os
 import re
 import struct
+import urllib.request
 import zlib
 
 from db import get_post, update_post
@@ -192,6 +202,61 @@ def _render_with_playwright(html: str, image_path: str) -> bool:
     return True
 
 
+def _placid_client():
+    """Build a Placid client. Indirected so tests can inject a fake."""
+    from engine.integrations.placid import PlacidClient
+
+    return PlacidClient()
+
+
+def _download_to(url: str, path: str) -> None:
+    """Download a finished Placid image URL to a local path. Stdlib only.
+
+    Only ever called on the Placid path, which is itself gated on AICMO_RENDER
+    AND a configured client, so the default offline path never reaches here.
+    """
+    req = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = resp.read()
+    with open(path, "wb") as fh:
+        fh.write(data)
+
+
+def _render_with_placid(hook: str, body: str, image_path: str) -> bool:
+    """Optional backend: composite the post onto an on-brand Placid template.
+
+    Maps the hook, body, and brand background color to named template layers,
+    starts the render, and saves the returned image to image_path. Returns True
+    on success, False if Placid is not configured or anything fails, so the
+    caller falls back to the offline render and the loop never breaks.
+    """
+    try:
+        client = _placid_client()
+    except Exception:
+        return False
+    if not client.is_configured():
+        return False
+    try:
+        template_uuid = client.default_template_uuid()
+        layers = {
+            "hook": {"text": hook},
+            "body": {"text": body},
+            "background": {"color": "#F7F3EC"},
+        }
+        result = client.render_image(template_uuid, layers) or {}
+        image_url = result.get("image_url")
+        # Placid jobs may queue; poll once via get_image if a polling id is given.
+        if not image_url and result.get("id"):
+            polled = client.get_image(result["id"]) or {}
+            image_url = polled.get("image_url")
+        if not image_url:
+            return False
+        _download_to(image_url, image_path)
+        return True
+    except Exception:
+        return False
+
+
 def render_ad(post_id: str) -> str:
     """STUDIO contributes to ADS (brick B4.2): render an ad-sized creative.
 
@@ -216,13 +281,23 @@ def render_ad(post_id: str) -> str:
     hook = post.get("hook") or ""
     body = post.get("body") or ""
 
+    backend = os.environ.get("AICMO_RENDER")
     drawn = False
-    if os.environ.get("AICMO_RENDER") == "playwright":
+    if backend == "placid":
+        drawn = _render_with_placid(hook, body, image_path)
+        if drawn:
+            print("[render] ad backend: placid")
+    elif backend == "playwright":
         drawn = _render_ad_with_playwright(html, image_path)
+        if drawn:
+            print("[render] ad backend: playwright")
     if not drawn:
         drawn = _render_with_pil(hook, body, image_path, AD_WIDTH, AD_HEIGHT)
+        if drawn:
+            print("[render] ad backend: pil")
     if not drawn:
         _placeholder_png(image_path, AD_WIDTH, AD_HEIGHT, BG_RGB)
+        print("[render] ad backend: stdlib")
     return image_path
 
 
@@ -255,13 +330,23 @@ def run(post_id: str, auto_approve: bool = False) -> None:
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
 
+    backend = os.environ.get("AICMO_RENDER")
     drawn = False
-    if os.environ.get("AICMO_RENDER") == "playwright":
+    if backend == "placid":
+        drawn = _render_with_placid(post["hook"], post["body"], image_path)
+        if drawn:
+            print("[render] backend: placid")
+    elif backend == "playwright":
         drawn = _render_with_playwright(html, image_path)
+        if drawn:
+            print("[render] backend: playwright")
     if not drawn:
         drawn = _render_with_pil(post["hook"], post["body"], image_path, WIDTH, HEIGHT)
+        if drawn:
+            print("[render] backend: pil")
     if not drawn:
         _placeholder_png(image_path, WIDTH, HEIGHT, BG_RGB)
+        print("[render] backend: stdlib")
 
     # Store a repo-relative path so the Flask gate can serve it directly. If the
     # render dir lives outside the repo (e.g. a test tmp dir), keep it absolute.

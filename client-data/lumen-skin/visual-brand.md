@@ -2,6 +2,8 @@
 
 The Studio (Station 2) renders posts against this. Brand QC scores against it.
 
+Placid is the template composite render backend when configured (AICMO_RENDER=placid plus PLACID_API_TOKEN), offline Pillow or stdlib render otherwise.
+
 ## Colors
 - **Background:** warm off-white `#F7F3EC`
 - **Accent:** soft terracotta `#C77B58`

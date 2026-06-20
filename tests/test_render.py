@@ -94,3 +94,118 @@ def test_render_image_is_non_trivial(monkeypatch, tmp_path):
     # Text pixels: dark ink against the warm off-white background.
     dark = sum(1 for r, g, b in img.resize((216, 270)).getdata() if r + g + b < 300)
     assert dark > 50, "no text pixels drawn onto the render"
+
+
+# ---- Placid backend (optional, credential-gated) -----------------------------
+
+
+def test_default_render_is_offline_no_placid(monkeypatch, tmp_path):
+    """With no AICMO_RENDER env var, the default render path must run offline and
+    must never call Placid."""
+    _fresh_db(monkeypatch, tmp_path)
+    from engine.studio import render
+
+    monkeypatch.delenv("AICMO_RENDER", raising=False)
+    monkeypatch.setattr(render, "RENDERS_DIR", str(tmp_path / "renders"))
+
+    called = {"placid": False}
+
+    class _FakeClient:
+        def is_configured(self):
+            called["placid"] = True
+            return True
+
+    monkeypatch.setattr(render, "_placid_client", lambda: _FakeClient())
+
+    pid = _drafted_post()
+    render.run(pid)
+
+    assert called["placid"] is False, "default path must not touch Placid"
+    row = db_module.get_post(pid)
+    assert row["image_path"], "image_path not set on default offline path"
+
+
+def test_placid_path_taken_with_env_and_configured_client(monkeypatch, tmp_path):
+    """With AICMO_RENDER=placid and a configured client, the Placid path runs."""
+    _fresh_db(monkeypatch, tmp_path)
+    from engine.studio import render
+
+    monkeypatch.setenv("AICMO_RENDER", "placid")
+    monkeypatch.setattr(render, "RENDERS_DIR", str(tmp_path / "renders"))
+
+    calls = {"render_called": False}
+
+    class _FakeClient:
+        def is_configured(self):
+            return True
+
+        def default_template_uuid(self):
+            return "tpl-uuid"
+
+        def render_image(self, template_uuid, layers):
+            calls["render_called"] = True
+            calls["template_uuid"] = template_uuid
+            calls["layers"] = layers
+            return {"status": "finished", "image_url": "https://placid.test/out.png"}
+
+    # The image fetch is local to render; stub it so no network is used.
+    monkeypatch.setattr(render, "_placid_client", lambda: _FakeClient())
+    monkeypatch.setattr(
+        render, "_download_to", lambda url, path: _write_min_png(path)
+    )
+
+    pid = _drafted_post()
+    render.run(pid)
+
+    assert calls["render_called"] is True, "Placid render_image was not called"
+    row = db_module.get_post(pid)
+    assert row["image_path"], "image_path not set on Placid path"
+
+
+def test_placid_falls_back_to_offline_on_error(monkeypatch, tmp_path):
+    """If the Placid path raises, render still produces an offline image."""
+    _fresh_db(monkeypatch, tmp_path)
+    from engine.studio import render
+
+    monkeypatch.setenv("AICMO_RENDER", "placid")
+    monkeypatch.setattr(render, "RENDERS_DIR", str(tmp_path / "renders"))
+
+    class _BoomClient:
+        def is_configured(self):
+            return True
+
+        def default_template_uuid(self):
+            return "tpl-uuid"
+
+        def render_image(self, template_uuid, layers):
+            raise RuntimeError("placid boom")
+
+    monkeypatch.setattr(render, "_placid_client", lambda: _BoomClient())
+
+    pid = _drafted_post()
+    render.run(pid)
+
+    row = db_module.get_post(pid)
+    assert row["image_path"], "fallback image_path not set after Placid error"
+    import os
+
+    assert os.path.exists(row["image_path"]), "fallback PNG not written"
+
+
+def _write_min_png(path):
+    """Write a valid 1x1 PNG so the Placid test path produces a real file."""
+    import struct
+    import zlib
+
+    def chunk(tag, data):
+        body = tag + data
+        return struct.pack(">I", len(data)) + body + struct.pack(
+            ">I", zlib.crc32(body) & 0xFFFFFFFF
+        )
+
+    raw = bytes([0]) + bytes([0xF7, 0xF3, 0xEC])
+    ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+    png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
+    with open(path, "wb") as fh:
+        fh.write(png)
