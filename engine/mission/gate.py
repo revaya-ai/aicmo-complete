@@ -132,5 +132,23 @@ def approve_spend(post_id: str, approver: str = "Human (spend gate)") -> None:
     advance(post_id, Status.AD_APPROVED, ad_spend_approved_by=approver)
 
 
+def mirror_to_notion(path: str = None) -> str:
+    """Mirror the qc_review queue to the Notion board so a human can approve from
+    their phone instead of the Flask page.
+
+    Offline (no NOTION_TOKEN) this writes the stub board JSON. With NOTION_TOKEN
+    set it pushes to a real Notion database. This is optional: the Flask gate and
+    the run.py auto_approve path both work without it. Notion is never required to
+    run the loop.
+
+    Returns the path the board was written to.
+    """
+    from engine.dashboard import notion_mirror
+
+    if path is None:
+        return notion_mirror.mirror_gate()
+    return notion_mirror.mirror_gate(path)
+
+
 if __name__ == "__main__":
     create_app().run(debug=True, port=5000)
