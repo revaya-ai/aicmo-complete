@@ -55,7 +55,7 @@ These modules complete the reference architecture. All offline by default.
 |---|---|---|
 | Intelligence (front of funnel) | `engine/intelligence/intelligence.py` | `client-data/<client>/strategy.md` -> candidate seed dicts (no db write). Live SEO via DataForSEO when configured, offline stub otherwise. Reports path `live:dataforseo` vs `offline:stub`. |
 | AEO (AI visibility) | `engine/aeo/aeo.py` | `client-data/<client>/positioning.md` + `strategy.md` -> `outputs/reports/<client>-aeo-visibility.md`. Is the brand cited in AI answers. Offline by default. |
-| Integrations | `engine/integrations/dataforseo.py` | Credential-gated DataForSEO client (SEO + AEO), stdlib only. No network call without `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`. |
+| Integrations | `engine/integrations/dataforseo.py`, `engine/integrations/placid.py` | Credential-gated clients, stdlib only. DataForSEO (SEO + AEO) needs `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`. Placid (template composite render) needs `PLACID_API_TOKEN`. No network call without the credential. |
 | Feedback loop | `engine/feedback.py` | `analyzed` posts -> appends `client-data/<client>/learnings.md` |
 | Dashboard | `engine/dashboard/metrics.py`, `report.py`, `notion_mirror.py` | whole pipeline -> summary dict, `outputs/reports/*.md`, `outputs/notion-mirror.json` |
 | Ad creative | `engine/studio/render.py` `render_ad(post_id)` | post hook/body -> ad-sized PNG (wired into `ads_push`) |
@@ -112,6 +112,7 @@ In `.claude/commands/`. Commands orchestrate, loading the relevant skills.
 
 | Env var | Real service |
 |---|---|
+| `AICMO_RENDER=placid` (+ `PLACID_API_TOKEN`) | Studio template composite render via Placid (post + ad creative). Optional `PLACID_TEMPLATE_UUID`. Falls back to offline render on any error |
 | `AICMO_RENDER=playwright` | Studio browser render (post + ad creative) |
 | `AICMO_VISION_QC=claude` | Vision brand QC |
 | `ZERNIO_API_KEY` | Mission publish + analytics |
@@ -121,6 +122,12 @@ In `.claude/commands/`. Commands orchestrate, loading the relevant skills.
 | `NOTION_TOKEN` | Notion board mirror (dashboard + human gate) |
 
 None are required. The stubs are deterministic so tests and the demo are stable.
+
+Studio render backends (`engine/studio/render.py`): selection order is Placid
+(when `AICMO_RENDER=placid` and the Placid client is configured), then Playwright
+(`AICMO_RENDER=playwright`), then the Pillow default, then the stdlib placeholder.
+The default path (no `AICMO_RENDER`) stays offline, stdlib or Pillow, no token, no
+network. Placid is the template composite backend that builds on-brand graphics.
 
 ## Running and testing
 
