@@ -72,9 +72,18 @@ python3 run.py "why your competitors all sound the same"
 ```
 
 This creates a post, walks it through every station, prints each status
-transition, and prints the final row as JSON. A real PNG render lands in
-`renders/<post_id>.png` at 1080x1350. The post ends at `ad_live` if it is a
-winner, or `analyzed` if its engagement does not clear the promote threshold.
+transition, and prints the final row as JSON. A PNG render lands in
+`renders/<post_id>.png` at 1080x1350. If Pillow is installed (the default in
+`requirements.txt`), the PNG carries the post's hook and body text drawn in the
+brand colors. Without Pillow, the stdlib fallback writes a valid solid
+brand-color PNG with no text, and the QC step says plainly it ran a structural
+check only, not a pixel inspection. Set `AICMO_RENDER=playwright` (plus
+`playwright install chromium`) for a full browser-rendered graphic.
+
+The published URL is a stub (`zernio.test`); real publishing needs
+`ZERNIO_API_KEY`. The loop also writes `outputs/notion-mirror.json` (a stub board
+offline; real Notion behind `NOTION_TOKEN`). The post ends at `ad_live` if it is
+a winner, or `analyzed` if its engagement does not clear the promote threshold.
 
 The human gate and the ad spend gate auto-approve in `run.py` (via
 `auto_approve=True`) so the demo completes unattended. In production a human acts
@@ -95,6 +104,9 @@ No test needs the network or an API key.
 
 The craft lives in skills, the loop runs through commands. Each command takes a
 post id (except generate, which takes a seed idea) and walks the post forward.
+These `/ai-cmo-*` entries are Claude Code commands, not shell commands. Without
+Claude Code, run the loop with `python3 run.py "<seed>"`, and run reporting with
+`python3 -m engine.dashboard.report` and `python3 -m engine.dashboard.notion_mirror`.
 
 | Command | Walks | Skills loaded |
 |---|---|---|
