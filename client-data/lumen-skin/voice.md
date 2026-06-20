@@ -12,6 +12,8 @@ Honest. Calm. Direct. Reassuring. Anti-hype.
 - Use "you" and "we". We are two real people.
 - Lead with the useful thing, not the product.
 - A dry joke is fine. A hard sell is not.
+- No em dashes or hyphens as breaks. Use commas or periods.
+- Show, don't claim. Back every claim with a specific, or cut it.
 
 ## Words we use
 simple, honest, actually, skip, three, four weeks, ingredient, routine, proof
