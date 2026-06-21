@@ -150,11 +150,13 @@ approving in a real Notion board), these are still open:
 2. **Nothing runs on a schedule.** `run.py` walks the loop when a human invokes
    it, and the per-persona work is driven by `/ai-cmo-*` Claude Code commands.
    There is no cron or launchd job firing the loop unattended.
-3. **Notion is a mirror, not yet the live gate.** The Notion client is wired and
-   the pipeline mirrors to it, but the production loop reads its human decisions
-   from the local Flask gate (`engine/mission/gate.py`), not back from Notion. For
-   the client to act only in Notion, decisions have to be read back from Notion
-   into the pipeline.
+3. **Notion is a mirror, not yet the live gate.** The Notion client is wired
+   (`engine/dashboard/notion_mirror.py`) and the pipeline mirrors to it, but the
+   production loop reads its human decisions from the local Flask gate
+   (`engine/mission/gate.py`), not back from Notion. For the client to act only in
+   Notion, decisions have to be read back from Notion into the pipeline. The
+   sibling repo `aicmo-core` has built this read-back (`notion_sync.pull_gate`);
+   this repo has not.
 
 Everything else (real render, real publish, real ads push, intelligence, AEO,
 reporting, backups) is wired. The gap is the runtime, not the stations.
@@ -170,6 +172,10 @@ reporting, backups) is wired. The gap is the runtime, not the stations.
   station-level integrations are already wired here, so when a `aicmo-core` row is
   marked "ref: complete," this is where the working version lives.
 
-Both repos share the same product architecture (sections 1 through 4) and the same
-open runtime gap (section 6). When a component moves status, update its row in the
-register and re-run the QA auditor.
+Both repos share the same product architecture (sections 1 through 4) and two open
+gaps: autonomous Brain generation and scheduling. They diverged elsewhere. This
+repo went deep on the station integrations (render backends, publishing, ads push,
+intelligence, AEO, backups). `aicmo-core` went deep on the Notion human surface and
+feedback loop, including the Notion decision read-back this repo still lacks (gap
+3), but its Studio render and QC are still stubs. When a component moves status,
+update its row in the register and re-run the QA auditor.
