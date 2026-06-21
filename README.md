@@ -1,6 +1,9 @@
-# aicmo-core
+# aicmo-complete
 
-**The AI CMO.** A content marketing department that runs as software.
+**The AI CMO.** A content marketing department that runs as software. This is the
+fuller reference implementation. For how the whole product works (the runtime
+model, the full component map, and the one gap still open even here), see
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 One content idea ("a post") is a single database row that walks through a status
 pipeline. Each station reads the row at one status, does its job, and advances it
